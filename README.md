@@ -98,6 +98,8 @@ The intended rebuild path is local-first, then optional cloud sync:
 - Use Cloudflare R2 or another S3-compatible object store for large licensed media and model artifacts.
 - Generate signed object URLs from the backend only. Do not put storage secrets in the desktop app.
 
+See [docs/prd-cloud-migration.md](docs/prd-cloud-migration.md) for the staged migration plan.
+
 ## Privacy Guardrails
 
 Emotion and heart-rate signals are sensitive, health-adjacent data. This prototype should not upload raw webcam frames, face images, raw heart-rate streams, or emotion logs by default. Do not frame this project as a medical, therapy, stress-reduction, or production wearable product.
