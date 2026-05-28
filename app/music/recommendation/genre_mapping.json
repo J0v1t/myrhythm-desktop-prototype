@@ -1,0 +1,10 @@
+{
+  "rock": "angry",
+  "electronic": "angry",
+  "pop": "happy",
+  "hip-hop": "happy",
+  "instrumental": "sad",
+  "experimental": "sad",
+  "folk": "neutral",
+  "international": "neutral"
+}

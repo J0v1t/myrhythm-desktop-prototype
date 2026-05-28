@@ -1,0 +1,52 @@
+<RCC>
+  <qresource prefix="/images/">
+    <file>media/acoustic.png</file>
+    <file>media/Account.svg</file>
+    <file>media/angry.png</file>
+    <file>media/arrow-left.svg</file>
+    <file>media/backward.png</file>
+    <file>media/check.svg</file>
+    <file>media/default_cover.png</file>
+    <file>media/electronic.png</file>
+    <file>media/experimental.png</file>
+    <file>media/eye-closed.svg</file>
+    <file>media/eye.svg</file>
+    <file>media/face.png</file>
+    <file>media/folk.png</file>
+    <file>media/forward_button.png</file>
+    <file>media/fullscreen.svg</file>
+    <file>media/gray-angry.png</file>
+    <file>media/gray-neutral.png</file>
+    <file>media/gray-sad.png</file>
+    <file>media/gray-smile.png</file>
+    <file>media/guitar.svg</file>
+    <file>media/happy.png</file>
+    <file>media/hip-hop.png</file>
+    <file>media/home.png</file>
+    <file>media/instrumental.png</file>
+    <file>media/international.png</file>
+    <file>media/Logo 3.svg</file>
+    <file>media/Logo3.png</file>
+    <file>media/maximize.png</file>
+    <file>media/minimize.png</file>
+    <file>media/music.svg</file>
+    <file>media/myrhythm_logo.svg</file>
+    <file>media/neutral.png</file>
+    <file>media/normal.png</file>
+    <file>media/pause_button.png</file>
+    <file>media/piano.svg</file>
+    <file>media/play_button.png</file>
+    <file>media/pop.png</file>
+    <file>media/radio.svg</file>
+    <file>media/repeat.png</file>
+    <file>media/restore_down.png</file>
+    <file>media/rock.png</file>
+    <file>media/sad.png</file>
+    <file>media/search.svg</file>
+    <file>media/shuffle.png</file>
+    <file>media/user.png</file>
+    <file>media/volume.svg</file>
+    <file>media/x.svg</file>
+    <file>media/x_black.svg</file>
+  </qresource>
+</RCC>

@@ -1,0 +1,2 @@
+title,artist,genre,duration_seconds,local_file_path,cover_path,license_status,source_notes
+Example Track,Example Artist,Pop,180,C:/path/to/licensed/example.mp3,C:/path/to/cover.png,verified-local,Replace with your own licensed asset metadata
