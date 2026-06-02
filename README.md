@@ -1,68 +1,27 @@
 # MyRhythm Desktop Prototype
 
-MyRhythm is an academic desktop prototype for emotion-aware music recommendation. It combines a PyQt interface, local user preferences, music metadata, webcam-based facial emotion recognition modules, and BLE heart-rate input modules to explore how detected mood and preferences can influence song recommendations.
+<p>
+  <img alt="Python" src="https://img.shields.io/badge/-Python-3776AB?style=flat&logo=python&logoColor=white">
+  <img alt="PyQt5" src="https://img.shields.io/badge/-PyQt5-41CD52?style=flat&logo=qt&logoColor=white">
+  <img alt="SQLite" src="https://img.shields.io/badge/-SQLite-003B57?style=flat&logo=sqlite&logoColor=white">
+  <img alt="OpenCV" src="https://img.shields.io/badge/-OpenCV-5C3EE8?style=flat&logo=opencv&logoColor=white">
+  <img alt="TensorFlow" src="https://img.shields.io/badge/-TensorFlow-FF6F00?style=flat&logo=tensorflow&logoColor=white">
+</p>
 
-This public copy is intentionally sanitized for portfolio review. It does not include the original bulk music library, trained model artifacts, datasets, generated reports, local databases, or runtime outputs.
+MyRhythm is an academic desktop prototype for emotion-aware music recommendation. It combines a PyQt interface, local preferences, music metadata, webcam-based facial emotion recognition modules, and BLE heart-rate modules to explore how mood signals could influence song recommendations.
 
-## Current Scope
+This public copy is sanitized for portfolio review. It keeps the application structure and documentation, but excludes private datasets, model artifacts, generated outputs, local databases, and music files.
 
-- PyQt desktop interface for agreement, login, preferences, recognition, and dashboard flows
-- Local SQLite database schema for users, preferences, songs, and extracted audio features
-- Recommendation engine that ranks songs using detected emotion labels and stored preferences
-- Facial emotion recognition scripts and webcam pipeline code
+## What It Demonstrates
+
+- PyQt screens for agreement, login, preferences, recognition, and dashboard flows
+- SQLAlchemy models for users, preferences, songs, and audio features
+- Recommendation logic that ranks songs using detected emotion labels and stored preferences
+- Facial emotion recognition pipeline code for webcam-based FER experiments
 - BLE heart-rate reader and heart-rate emotion-classification scripts
-- Music metadata, feature extraction, scanner, and recommendation modules
-- Lightweight UI assets needed to understand the prototype
+- Asset, model, and storage documentation for a safer public rebuild
 
-## Not Included
-
-- MP3 files and cover-image library
-- Trained FER, heart-rate, or music-classifier model artifacts
-- Training datasets and generated evaluation reports
-- Runtime SQLite databases
-- Raw webcam captures, face images, heart-rate logs, or emotion logs
-- Cloud credentials or third-party auth secrets
-
-See [docs/local-assets.md](docs/local-assets.md), [docs/model-artifacts.md](docs/model-artifacts.md), and [docs/storage-plan.md](docs/storage-plan.md) for the intended asset strategy.
-
-## Tech Stack
-
-- Python
-- PyQt5 / Qt Designer
-- SQLAlchemy
-- SQLite by default, with `DATABASE_URL` support for future database adapters
-- OpenCV, TensorFlow/Keras, DeepFace, Librosa, scikit-learn, NumPy, Pandas
-- Bleak for BLE heart-rate device scanning
-- python-vlc for local music playback
-
-## Project Structure
-
-```text
-myrhythm-desktop-prototype/
-  app/
-    auth/                  # Local prototype auth logic
-    database/              # SQLAlchemy schema and models
-    fer/                   # Facial emotion recognition scripts
-    gui/                   # PyQt UI windows and Qt Designer files
-    hr/                    # BLE heart-rate and HR model scripts
-    logic/                 # User session and preference logic
-    music/                 # Metadata, feature extraction, and recommendation logic
-  docs/
-    architecture.md
-    asset-policy.md
-    local-assets.md
-    model-artifacts.md
-    storage-plan.md
-  media/                   # Lightweight UI icons/logos only
-  sample_data/
-    song_manifest.example.csv
-  tests/
-  .env.example
-  requirements.txt
-  run.py
-```
-
-## Setup
+## Run Locally
 
 ```powershell
 python -m venv .venv
@@ -72,52 +31,55 @@ Copy-Item .env.example .env
 python run.py
 ```
 
-The application creates `instance/myrhythm.db` locally. That database is ignored by Git.
+The app creates `instance/myrhythm.db` locally. That database is ignored by Git.
 
-## Local Assets
+## Project Map
 
-This repository does not ship audio or trained model files. To exercise the full app locally, provide your own licensed local music files and model artifacts, then point the app to them through environment variables or future configuration adapters.
+```text
+myrhythm-desktop-prototype/
+  app/
+    auth/       # Prototype auth logic
+    database/   # SQLAlchemy schema and models
+    fer/        # Facial emotion recognition scripts
+    gui/        # PyQt windows and Qt Designer files
+    hr/         # BLE heart-rate and HR model scripts
+    logic/      # User session and preferences
+    music/      # Metadata, features, scanner, and recommendation logic
+  docs/         # Architecture, asset policy, model notes, and storage plan
+  media/        # Lightweight UI icons and logos
+  sample_data/  # Example song manifest shape
+  tests/
+```
 
-Minimum local asset categories:
+## Not Included
 
-- Music library directory
-- Song metadata manifest
-- FER model artifact
-- Optional heart-rate model artifact
-- Optional music-classifier artifacts
+- MP3 files, cover art, and bulk local music libraries
+- Trained FER, heart-rate, or music-classifier model files
+- Training datasets, generated reports, runtime logs, or local databases
+- Raw webcam captures, face images, raw heart-rate streams, or emotion logs
+- Cloud credentials or third-party auth secrets
 
-Use [sample_data/song_manifest.example.csv](sample_data/song_manifest.example.csv) as the metadata shape for future ingestion.
+Use [docs/local-assets.md](docs/local-assets.md), [docs/model-artifacts.md](docs/model-artifacts.md), and [sample_data/song_manifest.example.csv](sample_data/song_manifest.example.csv) when rebuilding local assets.
 
-## Cloud Rebuild Direction
+## Team Notes
 
-The intended rebuild path is local-first, then optional cloud sync:
+Emotion and heart-rate signals are sensitive, health-adjacent data. Keep this prototype local-first unless a backend, consent flow, and storage policy are ready. Do not frame the project as medical software, therapy, stress reduction, or a production wearable product.
 
-- Keep the PyQt desktop app as the main client.
-- Add a FastAPI backend only after the sanitized local app is stable.
-- Use Supabase Auth/Postgres if real cloud accounts and relational metadata are needed.
-- Use Cloudflare R2 or another S3-compatible object store for large licensed media and model artifacts.
-- Generate signed object URLs from the backend only. Do not put storage secrets in the desktop app.
+The staged cloud direction is documented in [docs/prd-cloud-migration.md](docs/prd-cloud-migration.md): keep PyQt as the client, add a backend before cloud storage, and keep object-storage/database secrets server-side.
 
-See [docs/prd-cloud-migration.md](docs/prd-cloud-migration.md) for the staged migration plan.
+## Verification
 
-## Privacy Guardrails
+- Release scan found no committed heavy media, model, dataset, database, or secret files
+- `python -m compileall -q app tests` passed
+- `python -m pytest tests` passed with 3 tests passing and 2 optional dependency suites skipped in the bare local environment
 
-Emotion and heart-rate signals are sensitive, health-adjacent data. This prototype should not upload raw webcam frames, face images, raw heart-rate streams, or emotion logs by default. Do not frame this project as a medical, therapy, stress-reduction, or production wearable product.
+## Future Improvements
 
-## Verification Status
-
-Local verification completed on the sanitized copy:
-
-- No heavy media, model, dataset, database, or secret files were found in the release scan.
-- `python -m compileall -q app tests` passed.
-- `python -m pytest tests` passed with 3 tests passing and 2 optional dependency suites skipped in the bare local environment.
-
-Before public release, capture screenshots or demo media from the sanitized copy and re-run the same checks after any asset or model changes.
+- Add screenshots or a short demo clip from the sanitized copy
+- Add clearer dependency groups for base app, FER, HR, and audio features
+- Add more unit tests around recommendation and database behavior
+- Build a backend only after the local prototype and privacy boundaries are stable
 
 ## Portfolio Framing
 
-Safe wording:
-
-> Built an academic PyQt desktop prototype for emotion-aware music recommendation using webcam facial-emotion modules, BLE heart-rate input modules, SQLite-backed preferences, and local music metadata.
-
-Avoid claiming production deployment, guaranteed emotional outcomes, medical use, or support for specific commercial wearable brands unless separately verified.
+Built an academic PyQt desktop prototype for emotion-aware music recommendation using webcam facial-emotion modules, BLE heart-rate input modules, SQLite-backed preferences, and local music metadata.
