@@ -138,6 +138,7 @@ logs/
 # IDE
 .vscode/settings.json
 .idea/
+.worktrees/
 
 # FER
 artifacts/
