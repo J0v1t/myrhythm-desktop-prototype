@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.config.runtime_assets import (
+    PROJECT_ROOT,
     RuntimeAssets,
     resolve_cover_path,
     resolve_runtime_assets,
@@ -48,6 +49,35 @@ def test_resolve_runtime_assets_uses_default_paths_when_env_is_empty():
     assert assets.fer_model.source == "default"
     assert assets.hr_model.source == "default"
     assert assets.hr_label_encoder.source == "default"
+
+
+def test_resolve_runtime_assets_resolves_relative_env_paths_under_project_root():
+    assets = resolve_runtime_assets(
+        env={
+            "MYRHYTHM_FER_MODEL_PATH": "local_models/fer.h5",
+            "MYRHYTHM_HR_MODEL_PATH": "local_models/hr.keras",
+            "MYRHYTHM_HR_LABEL_ENCODER_PATH": "local_models/labels.pkl",
+            "MYRHYTHM_SONG_MANIFEST": "sample_data/songs.csv",
+            "MYRHYTHM_MUSIC_DIR": "tracks/local",
+        }
+    )
+
+    assert assets.fer_model.path == PROJECT_ROOT / "local_models" / "fer.h5"
+    assert assets.hr_model.path == PROJECT_ROOT / "local_models" / "hr.keras"
+    assert assets.hr_label_encoder.path == PROJECT_ROOT / "local_models" / "labels.pkl"
+    assert assets.song_manifest.path == PROJECT_ROOT / "sample_data" / "songs.csv"
+    assert assets.music_dir.path == PROJECT_ROOT / "tracks" / "local"
+
+
+def test_resolve_cover_path_resolves_relative_default_cover_under_project_root(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.chdir(tmp_path)
+
+    resolved = resolve_cover_path(None, "media/default_cover.png")
+
+    assert resolved == PROJECT_ROOT / "media" / "default_cover.png"
 
 
 def test_resolve_cover_path_returns_default_cover_for_missing_file(tmp_path):

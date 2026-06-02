@@ -64,7 +64,10 @@ def resolve_cover_path(
     cover_path: Optional[Union[str, Path]],
     default_cover: Union[str, Path] = DEFAULT_COVER,
 ) -> Path:
-    fallback = Path(default_cover).resolve()
+    fallback = Path(default_cover)
+    if not fallback.is_absolute():
+        fallback = PROJECT_ROOT / fallback
+    fallback = fallback.resolve()
     if not cover_path:
         return fallback
 
