@@ -61,5 +61,6 @@ def test_reset_signal_clears_labels_without_changing_other_signal():
 
     assert session.state.fer_status == "Off"
     assert session.state.fer_label is None
+    assert session.state.fer_confidence is None
     assert session.state.hr_label == "neutral"
     assert session.state.fused_mood == "neutral"
