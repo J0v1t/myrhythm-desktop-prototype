@@ -1,11 +1,9 @@
 # MyRhythm Desktop Prototype
 
 <p>
-  <img alt="Python" src="https://img.shields.io/badge/-Python-3776AB?style=flat&logo=python&logoColor=white">
-  <img alt="PyQt5" src="https://img.shields.io/badge/-PyQt5-41CD52?style=flat&logo=qt&logoColor=white">
-  <img alt="SQLite" src="https://img.shields.io/badge/-SQLite-003B57?style=flat&logo=sqlite&logoColor=white">
-  <img alt="OpenCV" src="https://img.shields.io/badge/-OpenCV-5C3EE8?style=flat&logo=opencv&logoColor=white">
-  <img alt="TensorFlow" src="https://img.shields.io/badge/-TensorFlow-FF6F00?style=flat&logo=tensorflow&logoColor=white">
+  <a href="https://skillicons.dev">
+    <img alt="MyRhythm stack" src="https://skillicons.dev/icons?i=python,qt,sqlite,opencv,tensorflow,scikitlearn&theme=light&perline=6">
+  </a>
 </p>
 
 MyRhythm is an academic desktop prototype for emotion-aware music recommendation. It combines a PyQt interface, local preferences, music metadata, webcam-based facial emotion recognition modules, and BLE heart-rate modules to explore how mood signals could influence song recommendations.
