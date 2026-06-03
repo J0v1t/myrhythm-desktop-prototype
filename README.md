@@ -2,7 +2,7 @@
 
 <p>
   <a href="https://skillicons.dev">
-    <img alt="MyRhythm stack" src="https://skillicons.dev/icons?i=python,qt,sqlite,opencv,tensorflow,scikitlearn&theme=light&perline=6">
+    <img alt="MyRhythm stack" src="https://skillicons.dev/icons?i=python,qt,sqlite,opencv,tensorflow,scikitlearn,supabase,cloudflare&theme=light&perline=8">
   </a>
 </p>
 
