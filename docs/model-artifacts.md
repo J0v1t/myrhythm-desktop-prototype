@@ -24,3 +24,13 @@ For a cloud-backed rebuild, store model artifacts in private object storage and 
 - storage object key
 
 Do not claim model performance until the training data, evaluation split, and generated reports are verified.
+
+## Local Runtime Configuration
+
+The app resolves model artifacts through environment variables first:
+
+- `MYRHYTHM_FER_MODEL_PATH`
+- `MYRHYTHM_HR_MODEL_PATH`
+- `MYRHYTHM_HR_LABEL_ENCODER_PATH`
+
+If these variables are unset, the app uses the original local default paths under `app/fer/trained_models/` and `app/hr/trained_hr_models/`. Those paths are ignored by Git. Missing artifacts should be reported inside the Recognition window instead of requiring a terminal log.

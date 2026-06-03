@@ -31,6 +31,18 @@ python run.py
 
 The app creates `instance/myrhythm.db` locally. That database is ignored by Git.
 
+### Optional Real-Device Features
+
+To run webcam FER and BLE heart-rate recognition, keep model artifacts outside Git and set:
+
+```powershell
+$env:MYRHYTHM_FER_MODEL_PATH="C:/path/to/models/myrhythm_fer.h5"
+$env:MYRHYTHM_HR_MODEL_PATH="C:/path/to/models/lstm_model.keras"
+$env:MYRHYTHM_HR_LABEL_ENCODER_PATH="C:/path/to/models/label_encoder.pkl"
+```
+
+Use a local webcam and a BLE heart-rate monitor that exposes the standard Heart Rate Measurement characteristic. The app keeps raw webcam frames and raw heart-rate streams local by default and uses only summary mood labels for recommendations.
+
 ## Project Map
 
 ```text
