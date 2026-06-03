@@ -48,6 +48,8 @@ Live demo buckets:
 
 The Worker is deployed at `https://myrhythm-assets-api.zctrl7801.workers.dev`. Its Supabase publishable key is stored as a Wrangler secret, not in source control.
 
+Before sharing the app publicly, review [docs/production-security.md](docs/production-security.md). The Worker enforces authenticated asset access and rate limits, while Supabase email confirmation, CAPTCHA, and auth rate-limit settings must be enabled in the Supabase dashboard.
+
 ### Demo Reviewer Data
 
 To populate a local SQLite database with generated demo tracks and generated cover art:
@@ -116,6 +118,7 @@ The staged cloud direction is documented in [docs/prd-cloud-migration.md](docs/p
 - Add screenshots or a short demo clip from the sanitized copy
 - Add clearer dependency groups for base app, FER, HR, and audio features
 - Add more unit tests around recommendation and database behavior
+- Finish wiring playback/model loading to the cloud asset client
 - Build a backend only after the local prototype and privacy boundaries are stable
 
 ## Portfolio Framing

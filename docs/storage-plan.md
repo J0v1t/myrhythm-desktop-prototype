@@ -72,6 +72,8 @@ secrets; never commit them.
 R2 bucket access is private. Requests without a valid Supabase bearer token
 return `401`, and malformed object keys return `400`.
 
+Production abuse controls are tracked in [production-security.md](production-security.md).
+
 ## Phase 4: Backend API
 
 Add FastAPI only after the local desktop app is stable.

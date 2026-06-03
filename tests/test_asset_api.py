@@ -1,6 +1,9 @@
-import pytest
+import io
 
-from app.cloud.asset_api import AssetResponse, CloudflareAssetClient
+import pytest
+from urllib.error import HTTPError
+
+from app.cloud.asset_api import AssetResponse, CloudflareAssetClient, _request_asset
 
 
 def test_asset_client_fetches_music_asset_with_supabase_token():
@@ -41,3 +44,23 @@ def test_asset_client_rejects_unsafe_object_keys():
 
     with pytest.raises(ValueError):
         client.music_asset_url("../secret")
+
+
+def test_asset_client_reports_rate_limits(monkeypatch):
+    def fake_urlopen(req, timeout):
+        raise HTTPError(req.full_url, 429, "Too Many Requests", {}, io.BytesIO(b"{}"))
+
+    monkeypatch.setattr("app.cloud.asset_api.request.urlopen", fake_urlopen)
+
+    with pytest.raises(RuntimeError, match="Too many asset requests"):
+        _request_asset("https://assets.example.test/a", {}, 15)
+
+
+def test_asset_client_reports_forbidden_assets(monkeypatch):
+    def fake_urlopen(req, timeout):
+        raise HTTPError(req.full_url, 403, "Forbidden", {}, io.BytesIO(b"{}"))
+
+    monkeypatch.setattr("app.cloud.asset_api.request.urlopen", fake_urlopen)
+
+    with pytest.raises(RuntimeError, match="not available"):
+        _request_asset("https://assets.example.test/a", {}, 15)

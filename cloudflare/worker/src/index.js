@@ -1,5 +1,6 @@
 const MUSIC_PREFIX = "/assets/music/";
 const MODEL_PREFIX = "/assets/models/";
+const RATE_LIMITED = "rate_limited";
 
 export default {
   async fetch(request, env) {
@@ -25,9 +26,31 @@ export default {
       return json({ error: "not_found" }, 404, env);
     }
 
+    const ipLimit = await checkRateLimit(env.IP_RATE_LIMITER, ipRateKey(request, route));
+    if (!ipLimit.success) {
+      return rateLimited(env);
+    }
+
+    if (route.group === "models" && env.ALLOW_MODEL_DOWNLOADS !== "true") {
+      return json({ error: "model_downloads_disabled" }, 403, env);
+    }
+
     const authResult = await validateSupabaseToken(request, env);
     if (!authResult.ok) {
       return json({ error: authResult.error }, 401, env);
+    }
+
+    const userLimiter = route.group === "models"
+      ? env.USER_MODEL_RATE_LIMITER
+      : env.USER_ASSET_RATE_LIMITER;
+    const userLimit = await checkRateLimit(userLimiter, userRateKey(authResult.user, route));
+    if (!userLimit.success) {
+      return rateLimited(env);
+    }
+
+    const authorized = await authorizeAssetAccess(route, authResult.token, env);
+    if (!authorized) {
+      return json({ error: "asset_forbidden" }, 403, env);
     }
 
     const object = await route.bucket.get(route.key);
@@ -54,7 +77,9 @@ export function resolveAssetRoute(pathname, env) {
     }
 
     return {
+      group: "music",
       bucket: env.MUSIC_ASSETS,
+      bucketName: "myrhythm-music-assets",
       key,
       cacheControl: "private, max-age=300",
     };
@@ -67,7 +92,9 @@ export function resolveAssetRoute(pathname, env) {
     }
 
     return {
+      group: "models",
       bucket: env.ML_MODELS,
+      bucketName: "myrhythm-ml-models",
       key,
       cacheControl: "private, no-store",
     };
@@ -87,6 +114,22 @@ export function safeObjectKey(rawKey) {
     return null;
   }
   return key;
+}
+
+async function checkRateLimit(limiter, key) {
+  if (!limiter) {
+    return { success: true };
+  }
+  return limiter.limit({ key });
+}
+
+function ipRateKey(request, route) {
+  const ip = request.headers.get("cf-connecting-ip") || "unknown";
+  return `${route.group}:${ip}`;
+}
+
+function userRateKey(user, route) {
+  return `${route.group}:${user.id}`;
 }
 
 export async function validateSupabaseToken(request, env) {
@@ -112,7 +155,35 @@ export async function validateSupabaseToken(request, env) {
     return { ok: false, error: "invalid_supabase_session" };
   }
 
-  return { ok: true };
+  const user = await response.json();
+  if (!user?.id) {
+    return { ok: false, error: "invalid_supabase_session" };
+  }
+
+  return { ok: true, token, user };
+}
+
+export async function authorizeAssetAccess(route, token, env) {
+  const baseUrl = normalizeSupabaseUrl(env.SUPABASE_URL);
+  const response = await fetch(`${baseUrl}/rest/v1/rpc/authorize_asset_object_access`, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_PUBLIC_KEY,
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      p_bucket_name: route.bucketName,
+      p_object_key: route.key,
+      p_asset_group: route.group,
+    }),
+  });
+
+  if (!response.ok) {
+    return false;
+  }
+
+  return await response.json() === true;
 }
 
 export function normalizeSupabaseUrl(url) {
@@ -131,6 +202,17 @@ function json(payload, status, env) {
     headers: {
       ...corsHeaders(env),
       "Content-Type": "application/json",
+    },
+  });
+}
+
+function rateLimited(env) {
+  return new Response(JSON.stringify({ error: RATE_LIMITED }), {
+    status: 429,
+    headers: {
+      ...corsHeaders(env),
+      "Content-Type": "application/json",
+      "Retry-After": "60",
     },
   });
 }

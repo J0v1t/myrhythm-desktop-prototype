@@ -37,6 +37,10 @@ def _request_asset(url: str, headers: Mapping[str, str], timeout: int) -> AssetR
             )
     except urlerror.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
+        if exc.code == 429:
+            raise RuntimeError("Too many asset requests. Please wait and try again.") from exc
+        if exc.code == 403:
+            raise RuntimeError("This asset is not available to your account.") from exc
         raise RuntimeError(body or str(exc)) from exc
     except urlerror.URLError as exc:
         raise RuntimeError("Could not reach the MyRhythm asset API.") from exc
