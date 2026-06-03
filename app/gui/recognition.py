@@ -33,6 +33,8 @@ try:
 except ImportError:
     print("Warning: Recommendation Modules not found. Recommendation features will not work.")
 
+from app.emotion.signal_session import EmotionSignalSession
+
 
 # -------------------------------------------------------------------------
 # Main GUI Class
@@ -400,6 +402,8 @@ class Recognition(QtWidgets.QWidget, Ui_Form):
         self.emotion_buffer = deque(maxlen=7)
         self.current_emotion = "neutral"
         self.current_hr_emotion = "neutral" # Stores HR emotion
+        self.signal_session = EmotionSignalSession()
+        self.last_hr_status = "Off"
 
         # Connect UI signals → logic handlers
         self.connect_signals()
@@ -423,6 +427,19 @@ class Recognition(QtWidgets.QWidget, Ui_Form):
         # Recommendations
         self.pushButton_3.clicked.connect(self.proceed_and_close)
 
+    def set_fer_status(self, status):
+        state = self.signal_session.update_fer(status=status)
+        self.label_3.setText(f"Fused mood: {state.fused_mood.capitalize()}")
+        self.label_6.clear()
+        if status != "Camera active":
+            self.label_6.setText(status)
+
+    def set_hr_status(self, status):
+        self.last_hr_status = status
+        state = self.signal_session.update_hr(status=status)
+        self.label_16.setText(status)
+        self.label_3.setText(f"Fused mood: {state.fused_mood.capitalize()}")
+
     # --------------------------------------------------------------------------
     # Heart Rate Monitor Logic
     # --------------------------------------------------------------------------
@@ -440,7 +457,7 @@ class Recognition(QtWidgets.QWidget, Ui_Form):
         if self.hr_worker is not None:
             return # Already running
 
-        self.label_16.setText("Connecting...") # Update status label
+        self.set_hr_status("Loading model")
         
         self.hr_worker = HeartRateWorker()
         self.hr_worker.data_update.connect(self.update_hr_display)
@@ -465,7 +482,11 @@ class Recognition(QtWidgets.QWidget, Ui_Form):
         self.label_15.setText(f"{raw_bpm}")
         
         # label_16: Small Text (Emotion)
+        hr_label = None if emotion in ("Buffering...", "Invalid Input", "Model Missing") else emotion
+        state = self.signal_session.update_hr(status="Connected", bpm=raw_bpm, label=hr_label)
+        self.current_hr_emotion = state.hr_label or "neutral"
         self.label_16.setText(f"{emotion}")
+        self.label_3.setText(f"Fused mood: {state.fused_mood.capitalize()}")
 
     def update_hr_emotion(self, real_emotion):
         """Captures the actual emotion from HR for the recommendation logic."""
@@ -474,16 +495,22 @@ class Recognition(QtWidgets.QWidget, Ui_Form):
 
     def update_hr_status(self, status_msg):
         """Slot for status updates (Connecting, Error, etc)."""
-        self.label_16.setText(status_msg)
-        if status_msg == "Device Not Found":
+        self.set_hr_status(status_msg)
+        if status_msg == "Device not found":
              self.label_15.setText("--")
 
     def on_hr_worker_finished(self):
         """Cleanup when thread ends."""
         self.hr_worker = None
         self.label_15.setText("--")
-        self.label_16.setText("bpm") # Reset to default
         self.current_hr_emotion = "neutral"
+        terminal_status = self.last_hr_status
+        state = self.signal_session.reset_hr("Off")
+        if terminal_status in {"Device not found", "Model missing", "Error"}:
+            self.label_16.setText(terminal_status)
+        else:
+            self.label_16.setText("bpm") # Reset to default
+        self.label_3.setText(f"Fused mood: {state.fused_mood.capitalize()}")
 
         # If the checkbox is still checked but thread died (e.g. error), uncheck it
         if self.checkBox_2.isChecked():
@@ -508,8 +535,10 @@ class Recognition(QtWidgets.QWidget, Ui_Form):
             if hasattr(self, 'timer'):
                 self.timer.stop()
 
+            self.signal_session.reset_fer("Off")
+            self.label_6.clear()
             self.label_6.setText("Camera Off")
-            self.label_3.setText("Your current mood is:")
+            self.label_3.setText(f"Fused mood: {self.signal_session.state.fused_mood.capitalize()}")
 
             # Reset icons
             gray = os.path.join(self.media_path, "gray-")
@@ -519,11 +548,13 @@ class Recognition(QtWidgets.QWidget, Ui_Form):
             self.label_11.setPixmap(QtGui.QPixmap(gray + "angry.png"))
     
     def start_camera(self):
-        self.label_6.setText("Loading FER model... Please wait")
+        self.set_fer_status("Loading model")
 
         # Start background model loader
         self.loader = FERLoaderThread()
         self.loader.loaded.connect(self.on_model_loaded)
+        self.loader.status.connect(self.set_fer_status)
+        self.loader.error.connect(self.on_fer_loader_error)
         self.loader.start()
 
     def stop_camera(self):
@@ -532,11 +563,14 @@ class Recognition(QtWidgets.QWidget, Ui_Form):
         if hasattr(self, "infer_thread"):
             self.infer_thread.running = False
 
+        self.signal_session.reset_fer("Off")
+        self.label_6.clear()
         self.label_6.setText("Camera Off")
+        self.label_3.setText(f"Fused mood: {self.signal_session.state.fused_mood.capitalize()}")
 
     def on_model_loaded(self, model):
         self.fer_model = model
-        self.label_6.setText("Opening camera...")
+        self.set_fer_status("Camera active")
 
         # Start inference thread
         self.infer_thread = FERInferenceThread(model)
@@ -546,14 +580,22 @@ class Recognition(QtWidgets.QWidget, Ui_Form):
         # Start camera
         self.cam = Camera()
         if not self.cam.available:
-            self.label_6.setText("No webcam detected")
+            self.set_fer_status("No webcam detected")
             return
         
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_frame)
         self.timer.start(30)
 
-        self.label_6.setText("")  # Clear message
+        self.set_fer_status("Camera active")
+
+    def on_fer_loader_error(self, message):
+        print(f"FER loader error: {message}")
+        if self.checkBox.isChecked():
+            self.checkBox.blockSignals(True)
+            self.checkBox.setChecked(False)
+            self.checkBox.blockSignals(False)
+            self.update_frame_border()
 
     def on_inference_result(self, result):
         self.latest_result = result
@@ -587,9 +629,10 @@ class Recognition(QtWidgets.QWidget, Ui_Form):
         self.emotion_buffer.append(emotion)
         smoothed = max(set(self.emotion_buffer), key=self.emotion_buffer.count)
         self.current_emotion = smoothed          # stable emotion
+        state = self.signal_session.update_fer(status="Camera active", label=smoothed)
         
         # Update the GUI text
-        self.label_3.setText(f"Your current mood is: {smoothed.capitalize()}")
+        self.label_3.setText(f"Fused mood: {state.fused_mood.capitalize()}")
 
         icons = {
             "happy": ("happy.png", "gray-neutral.png", "gray-sad.png", "gray-angry.png"),
@@ -608,18 +651,14 @@ class Recognition(QtWidgets.QWidget, Ui_Form):
     def open_recommendations(self):
         engine = RecommendationEngine()
 
-        fer_active = self.checkBox.isChecked()
-        hr_active = self.checkBox_2.isChecked()
-        fer_emotion = self.current_emotion if fer_active else None
-        hr_emotion = self.current_hr_emotion if hr_active else None
-        combined = fer_active and hr_active
+        inputs = self.signal_session.recommendation_inputs()
 
         try:
             recommendations = engine.recommend(
                 user_id=self.user_id,
-                fer_emotion=fer_emotion,
-                hr_emotion=hr_emotion,
-                combined_mode=combined,
+                fer_emotion=inputs["fer_emotion"],
+                hr_emotion=inputs["hr_emotion"],
+                combined_mode=inputs["combined_mode"],
                 top_k=10  # Request 10 songs
             )
 
@@ -696,13 +735,13 @@ class HeartRateWorker(QtCore.QThread):
             self._stop_event = asyncio.Event()
 
             # Load HR Model
-            self.status_update.emit("Loading Model...")
+            self.status_update.emit("Loading model")
             if load_model_components():
-                self.status_update.emit("Connecting BLE...")
+                self.status_update.emit("Scanning BLE")
                 # Run the async task
                 self._loop.run_until_complete(self.async_main())
             else:
-                self.status_update.emit("Model Error")
+                self.status_update.emit("Model missing")
         except Exception as e:
             print(f"HR Worker Error: {e}")
             self.status_update.emit("Error")
@@ -733,7 +772,7 @@ class HeartRateWorker(QtCore.QThread):
         success = await read_heart_rate_live(hr_callback, self._stop_event)
         
         if not success:
-            self.status_update.emit("Device Not Found")
+            self.status_update.emit("Device not found")
         
         # Save final emotion on exit
         calculate_final_emotion_and_save()

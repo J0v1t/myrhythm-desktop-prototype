@@ -174,3 +174,17 @@ def test_reset_hr_clears_hr_reading_without_changing_fer_signal():
     assert session.state.fer_label == "sad"
     assert session.state.fer_confidence == 0.75
     assert session.state.fused_mood == "sad"
+
+
+def test_recommendation_inputs_ignore_unavailable_signals():
+    session = EmotionSignalSession()
+
+    session.update_fer(status="Model missing")
+    session.update_hr(status="Device not found")
+
+    assert session.recommendation_inputs() == {
+        "fer_emotion": None,
+        "hr_emotion": None,
+        "combined_mode": False,
+        "fused_mood": "neutral",
+    }
