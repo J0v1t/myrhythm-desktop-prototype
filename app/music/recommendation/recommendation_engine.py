@@ -12,17 +12,25 @@ import sys
 import json
 import random
 from collections import defaultdict
-from typing import List, Optional, Dict, Tuple
-
-from sqlalchemy.orm import Session
+from typing import Any, List, Optional, Dict, Tuple
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 sys.path.insert(0, PROJECT_ROOT)
 
-from app.database.schema import SessionLocal
-from app.database.models import Song, UserPreferences
+try:
+    from app.database.schema import SessionLocal
+    from app.database.models import Song, UserPreferences
+except ModuleNotFoundError:
+    SessionLocal = None
+
+    class Song:
+        pass
+
+    class UserPreferences:
+        pass
 
 from app.music.mood.mood_router import fuse_emotions, normalize_emotion
+from app.config.runtime_assets import DEFAULT_COVER, resolve_cover_path
 
 MODEL_DIR = os.path.join(PROJECT_ROOT, "app", "music", "recommendation")
 GENRE_MAP_PATH = os.path.join(MODEL_DIR, "genre_mapping.json")
@@ -55,8 +63,13 @@ def map_artist_to_emotion(artist: str) -> str:
 
 
 class RecommendationEngine:
-    def __init__(self, db: Optional[Session] = None, weights: Dict = None):
-        self.db = db or SessionLocal()
+    def __init__(self, db: Optional[Any] = None, weights: Dict = None):
+        if db is not None:
+            self.db = db
+        elif SessionLocal is not None:
+            self.db = SessionLocal()
+        else:
+            raise RuntimeError("SQLAlchemy is required when no database adapter is provided.")
         self.weights = weights or DEFAULT_WEIGHTS
 
     # -------------------------
@@ -77,7 +90,7 @@ class RecommendationEngine:
     # -------------------------
     # Candidate retrieval
     # -------------------------
-    def _get_candidate_songs(self, limit=500) -> List[Song]:
+    def _get_candidate_songs(self, limit=500) -> List[Any]:
         """
         Return candidate Song rows.
         You can refine this to prefer songs in user's preferred genres to reduce scoring cost.
@@ -87,7 +100,7 @@ class RecommendationEngine:
     # -------------------------
     # Score calculation
     # -------------------------
-    def _score_song(self, user_emotion: str, prefs: Dict, target_song: Song) -> Tuple[float, Dict]:
+    def _score_song(self, user_emotion: str, prefs: Dict, target_song: Any) -> Tuple[float, Dict]:
         """
         Compute composite score and return (score, breakdown)
         - Emotion match (genre → emotion)
@@ -181,7 +194,8 @@ class RecommendationEngine:
         songs = self._get_candidate_songs(limit=candidate_limit)
 
         scored = []
-        default_cover = os.path.join(PROJECT_ROOT, "media", "default_cover.png")
+        default_cover = DEFAULT_COVER
+        reason = f"Recommended for fused mood: {user_emotion.capitalize()}"
 
         for s in songs:
             score, breakdown = self._score_song(user_emotion, prefs, s)
@@ -192,9 +206,11 @@ class RecommendationEngine:
                 "artist": s.artist,
                 "genre": s.genre,
                 "file_path": s.file_path,
-                "cover_path": s.cover_path or default_cover,
+                "cover_path": str(resolve_cover_path(s.cover_path, default_cover)),
                 "score": score,
-                "breakdown": breakdown
+                "breakdown": breakdown,
+                "fused_mood": user_emotion,
+                "recommendation_reason": reason,
             })
 
         # ---- Bucket shuffle ----
