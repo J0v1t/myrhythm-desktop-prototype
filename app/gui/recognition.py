@@ -19,20 +19,6 @@ try:
 except ImportError:
     print("Warning: FER Modules not found. FER features will not work.")
 
-# --- HR Module Imports ---
-try:
-    from app.hr.scripts.ble_reader import read_heart_rate_live
-    from app.hr.scripts.pipeline import predict_emotions_live, calculate_final_emotion_and_save
-    from app.hr.trained_hr_models.classifier import load_model_components
-except ImportError:
-    print("Warning: HR Modules not found. HR features will not work.")
-
-try:
-    from app.music.recommendation.recommendation_engine import RecommendationEngine
-    from app.gui.dashboard2 import DashboardWindow
-except ImportError:
-    print("Warning: Recommendation Modules not found. Recommendation features will not work.")
-
 from app.emotion.signal_session import EmotionSignalSession
 
 
@@ -649,6 +635,8 @@ class Recognition(QtWidgets.QWidget, Ui_Form):
         self.label_11.setPixmap(QtGui.QPixmap(os.path.join(self.media_path, angry_icon)))
 
     def open_recommendations(self):
+        from app.music.recommendation.recommendation_engine import RecommendationEngine
+
         engine = RecommendationEngine()
 
         inputs = self.signal_session.recommendation_inputs()
@@ -729,6 +717,8 @@ class HeartRateWorker(QtCore.QThread):
     def run(self):
         """Entry point for the thread."""
         try:
+            from app.hr.trained_hr_models.classifier import load_model_components
+
             # Create a new event loop for this thread
             self._loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self._loop)
@@ -751,6 +741,12 @@ class HeartRateWorker(QtCore.QThread):
 
     async def async_main(self):
         """Async main wrapper for the BLE reader."""
+        from app.hr.scripts.ble_reader import read_heart_rate_live
+        from app.hr.scripts.pipeline import (
+            calculate_final_emotion_and_save,
+            predict_emotions_live,
+        )
+
         # Callback function for every new HR reading
         def hr_callback(raw_bpm):
             # 1. Predict Emotion
@@ -788,6 +784,8 @@ class HeartRateWorker(QtCore.QThread):
 
 if __name__ == "__main__":
     import sys
+    from app.gui.dashboard2 import DashboardWindow
+
     app = QtWidgets.QApplication(sys.argv)
     Form = QtWidgets.QWidget()
     dashboard = DashboardWindow()

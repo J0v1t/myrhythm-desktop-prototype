@@ -24,9 +24,6 @@ _hr_history: List[float] = []
 # NEW: History of predicted emotions (for final mode calculation)
 _emotion_history: List[str] = [] 
 
-# Ensure the model is loaded when the module initializes
-load_model_components()
-
 def map_quadrant_to_emotion(quadrant_label: str) -> str:
     """
     Maps the predicted Valence/Arousal (VA) quadrant label to a primary emotion 

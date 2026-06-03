@@ -31,6 +31,23 @@ python run.py
 
 The app creates `instance/myrhythm.db` locally. That database is ignored by Git.
 
+### Demo Reviewer Data
+
+To populate a local SQLite database with generated demo tracks and generated cover art:
+
+```powershell
+python scripts/seed_demo_assets.py
+```
+
+Then sign in with:
+
+```text
+Email: demo@myrhythm.local
+Password: demo123
+```
+
+The generated audio, covers, and database stay under `instance/` and are ignored by Git.
+
 ### Optional Real-Device Features
 
 To run webcam FER and BLE heart-rate recognition, keep model artifacts outside Git and set:

@@ -84,8 +84,8 @@ class Ui_Form(object):
 "\n"
 "")
         self.label_12.setText("")
-        self.label_12.setPixmap(QtGui.QPixmap(os.path.join(media_path, "Logo3.png")))
-        self.label_12.setScaledContents(False)
+        self.label_12.setPixmap(QtGui.QPixmap(os.path.join(media_path, "auth_hero.png")))
+        self.label_12.setScaledContents(True)
         self.label_12.setAlignment(QtCore.Qt.AlignCenter)
         self.label_12.setWordWrap(False)
         self.label_12.setObjectName("label_12")
@@ -196,6 +196,7 @@ class Ui_Form(object):
         self.label_19.setText("")
         self.label_19.setPixmap(QtGui.QPixmap(os.path.join(media_path, "myrhythm_logo.svg")))
         self.label_19.setScaledContents(True)
+        self.label_19.setVisible(False)
         self.label_19.setObjectName("label_19")
 
         self.pushButton = QtWidgets.QPushButton(self.widget_2)
