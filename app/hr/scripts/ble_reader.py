@@ -1,5 +1,4 @@
 import asyncio
-from bleak import BleakScanner, BleakClient, BleakError
 from typing import Callable, Optional
 import sys
 
@@ -10,7 +9,13 @@ HR_CHAR_UUID = "00002a37-0000-1000-8000-00805f9b34fb"
 # Common keywords in HR device names to help detection if UUID is missing from advertisement
 HR_DEVICE_NAMES = ["polar", "hrm", "wahoo", "garmin", "coospo", "heart"]
 
-_client: Optional[BleakClient] = None
+_client: Optional[object] = None
+
+
+def _load_bleak():
+    from bleak import BleakScanner, BleakClient, BleakError
+
+    return BleakScanner, BleakClient, BleakError
 
 # ----------------------------------------------------------
 # BLE Utilities
@@ -35,6 +40,12 @@ def _is_hr_device(device, advertisement_data):
 
 async def find_hr_device() -> Optional[object]:
     """Scans for BLE devices and returns the first valid HR device found."""
+    try:
+        BleakScanner, _, _ = _load_bleak()
+    except ImportError as e:
+        print(f"BLE support unavailable: {e}")
+        return None
+
     print("🔍 Scanning for BLE devices (5s)...")
     
     # We scan for ALL devices (no filter) because some HR monitors
@@ -60,7 +71,7 @@ async def find_hr_device() -> Optional[object]:
     return target_device
 
 
-def _parse_hr_measurement(data: bytearray) -> Optional[int]:
+def parse_hr_measurement(data: bytearray) -> Optional[int]:
     """Parses the Heart Rate Measurement characteristic data."""
     if not data:
         return None
@@ -76,11 +87,20 @@ def _parse_hr_measurement(data: bytearray) -> Optional[int]:
         return None
 
 
+_parse_hr_measurement = parse_hr_measurement
+
+
 async def read_heart_rate_live(
     bpm_callback: Callable[[int], None],
     stop_event: asyncio.Event,
 ) -> bool:
     global _client
+
+    try:
+        _, BleakClient, BleakError = _load_bleak()
+    except ImportError as e:
+        print(f"BLE support unavailable: {e}")
+        return False
     
     # 1. Find the device
     device = await find_hr_device()
@@ -88,7 +108,7 @@ async def read_heart_rate_live(
         return False
 
     def hr_notification_handler(sender: int, data: bytearray):
-        bpm = _parse_hr_measurement(data)
+        bpm = parse_hr_measurement(data)
         if bpm is not None:
             bpm_callback(bpm)
 

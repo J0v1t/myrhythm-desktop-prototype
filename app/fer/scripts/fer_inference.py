@@ -1,11 +1,13 @@
 import cv2
 import os
 import numpy as np
-from keras.models import load_model
+from pathlib import Path
+
+from app.config.runtime_assets import DEFAULT_FER_MODEL, PROJECT_ROOT, resolve_runtime_assets
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FER_DIR = os.path.join(BASE_DIR, "..")
-MODEL_PATH = os.path.join(FER_DIR, "trained_models/myrhythm_fer.h5")
+MODEL_PATH = str(DEFAULT_FER_MODEL)
 
 
 class FERModel:
@@ -13,7 +15,7 @@ class FERModel:
      Loads and runs predictions using the fine-tuned MyRhythm FER model.
      """
 
-     def __init__(self, model_path=MODEL_PATH, class_labels=None):
+     def __init__(self, model_path=None, class_labels=None):
           # expected input size of model
           self.target_size = (48, 48)
 
@@ -24,8 +26,22 @@ class FERModel:
                else ["angry", "happy", "neutral", "sad"]
           )
 
+          active_model_path = (
+               Path(model_path)
+               if model_path
+               else resolve_runtime_assets().fer_model.path
+          )
+          if not active_model_path.is_absolute():
+               active_model_path = PROJECT_ROOT / active_model_path
+          active_model_path = active_model_path.resolve()
+
+          if not active_model_path.exists():
+               raise FileNotFoundError(f"FER model missing: {active_model_path}")
+
+          from keras.models import load_model
+
           print("Loading model...")
-          self.model = load_model(model_path)
+          self.model = load_model(str(active_model_path))
           print("FER model loaded successfully.")
 
           # Haar cascade for face detection
