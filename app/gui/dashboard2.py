@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from app.gui.recognition import Recognition as Ui_Recognition
 from app.database.models.song import Song
 from app.database.schema import SessionLocal
+from app.music.catalog import normalize_song_record
 
 
 def normalize_text(text):
@@ -3175,7 +3176,10 @@ class DashboardWindow(QtWidgets.QWidget):
     # ------------------- Database -------------------
     def load_playlist_from_db(self):
         db = SessionLocal()
-        self.playlist = db.query(Song).all()
+        self.playlist = [
+            normalize_song_record(song).to_simple_namespace()
+            for song in db.query(Song).all()
+        ]
         db.close()
 
     # ------------------- Display -------------------
@@ -3245,8 +3249,12 @@ class DashboardWindow(QtWidgets.QWidget):
         self.ui.label_5.setText(song.artist or "Unknown Artist")
 
         # Update "Up Next" current song labels
-        self.ui.label_53.setText(song.title or "Unknown Title")
         self.ui.label_54.setText(song.artist or "Unknown Artist")
+        reason = getattr(song, "recommendation_reason", "")
+        if reason:
+            self.ui.label_53.setText(reason)
+        else:
+            self.ui.label_53.setText(song.title or "Unknown Title")
 
         # Reset slider
         self.ui.Musicslider.blockSignals(True)
@@ -3483,8 +3491,10 @@ class DashboardWindow(QtWidgets.QWidget):
                 id=s.get("song_id"),
                 title=s.get("title") or "Unknown Title",
                 artist=s.get("artist") or "Unknown Artist",
+                genre=s.get("genre") or "Unknown Genre",
                 file_path=s.get("file_path") or "",
-                cover_path=s.get("cover_path") or os.path.join(self.ui.media_path, "default_cover.png")
+                cover_path=s.get("cover_path") or os.path.join(self.ui.media_path, "default_cover.png"),
+                recommendation_reason=s.get("recommendation_reason", ""),
             )
             converted.append(temp_song)
 
@@ -3510,13 +3520,19 @@ class DashboardWindow(QtWidgets.QWidget):
         # Accept both dict and already-converted objects
         if isinstance(song_dict, dict):
             file_path = song_dict.get("file_path") or ""
-            cover_path = song_dict.get("cover") or os.path.join(self.ui.media_path, "default_cover.png")
+            cover_path = (
+                song_dict.get("cover_path")
+                or song_dict.get("cover")
+                or os.path.join(self.ui.media_path, "default_cover.png")
+            )
             temp_song = SimpleNamespace(
                 id=song_dict.get("song_id") or song_dict.get("id"),
                 title=song_dict.get("title", "Unknown Title"),
                 artist=song_dict.get("artist", "Unknown Artist"),
+                genre=song_dict.get("genre", "Unknown Genre"),
                 file_path=file_path,
-                cover_path=cover_path
+                cover_path=cover_path,
+                recommendation_reason=song_dict.get("recommendation_reason", ""),
             )
         else:
             # assume object with appropriate attributes

@@ -72,3 +72,22 @@ def test_catalog_record_can_be_converted_for_legacy_dashboard(tmp_path):
     assert legacy.artist == "Artist B"
     assert legacy.file_path == "C:/music/track-b.mp3"
     assert legacy.cover_path == str(default_cover)
+
+
+def test_catalog_record_preserves_recommendation_reason_for_dashboard(tmp_path):
+    default_cover = tmp_path / "default_cover.png"
+    default_cover.write_bytes(b"default")
+    record = SongCatalogRecord(
+        id=2,
+        title="Mood Track",
+        artist="Mood Artist",
+        genre="Pop",
+        duration=120,
+        file_path="C:/music/mood.mp3",
+        cover_path=str(default_cover),
+        recommendation_reason="Recommended for fused mood: Happy",
+    )
+
+    legacy = record.to_simple_namespace()
+
+    assert legacy.recommendation_reason == "Recommended for fused mood: Happy"
