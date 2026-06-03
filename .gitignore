@@ -139,6 +139,7 @@ logs/
 .vscode/settings.json
 .idea/
 .worktrees/
+.wrangler/
 
 # FER
 artifacts/

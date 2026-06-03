@@ -1,18 +1,16 @@
-"""
-Login logic for the desktop application.
-"""
+"""Login logic for the desktop application."""
 
-from app.database.models.user import User
-from app.database.schema import db
+from app.auth.supabase_auth import SupabaseAuthClient
 
 
-def authenticate_user(email, password):
+def authenticate_user(email, password, auth_client=None):
     """
-    Authenticate a user with email and password.
+    Authenticate a user with Supabase email/password auth.
 
     Args:
         email (str): User's email
         password (str): User's password
+        auth_client: Optional SupabaseAuthClient-compatible adapter
 
     Returns:
         tuple: (success: bool, message: str or user object)
@@ -20,9 +18,10 @@ def authenticate_user(email, password):
                - On failure: (False, error_message)
     """
     try:
-        user = db.query(User).filter_by(email=email).first()
-        if not user or not user.check_password(password):
-            return False, "Invalid email or password"
-        return True, user
+        client = auth_client or SupabaseAuthClient.from_env()
+        result = client.sign_in(email, password)
+        if result.success:
+            return True, result.user
+        return False, result.message
     except Exception as e:
         return False, f"Authentication error: {str(e)}"

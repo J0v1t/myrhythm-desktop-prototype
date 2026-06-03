@@ -1,0 +1,17 @@
+name = "myrhythm-assets-api"
+main = "src/index.js"
+compatibility_date = "2026-06-03"
+workers_dev = true
+preview_urls = false
+
+[vars]
+SUPABASE_URL = "https://yyjlkqvrjabcuuugpvyg.supabase.co"
+ALLOWED_ORIGIN = "*"
+
+[[r2_buckets]]
+binding = "MUSIC_ASSETS"
+bucket_name = "myrhythm-music-assets"
+
+[[r2_buckets]]
+binding = "ML_MODELS"
+bucket_name = "myrhythm-ml-models"

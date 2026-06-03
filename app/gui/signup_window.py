@@ -10,25 +10,30 @@ from app.auth.signup_logic import register_user
 
 
 class SignupWindow(QDialog):
-    def __init__(self):
+    def __init__(self, register_func=register_user, login_window_cls=None):
         super().__init__()
         self.ui = Ui_Form()
         self.ui.setupUi(self)
         self.ui.error.hide()
         self.ui.error_2.hide()
+        self.register_func = register_func
+        self.login_window_cls = login_window_cls
 
         # Connect buttons
         self.ui.pushButton.clicked.connect(self.signup)
         self.ui.pushButton_3.clicked.connect(self.open_signin)
 
-    def open_signin(self):
-        from app.gui.login_window import LoginWindow
+    def open_signin(self, prefill_email=None):
+        login_window_cls = self.login_window_cls
+        if login_window_cls is None:
+            from app.gui.login_window import LoginWindow
+            login_window_cls = LoginWindow
         self.hide()
         # Dispose any existing login_window to prevent duplicates
         if hasattr(self, 'login_window'):
             self.login_window.deleteLater()
             del self.login_window
-        self.login_window = LoginWindow()
+        self.login_window = login_window_cls(prefill_email=prefill_email)
         result = self.login_window.exec_()
         if result == QDialog.Accepted:
             self.user = self.login_window.user
@@ -52,10 +57,10 @@ class SignupWindow(QDialog):
                 self.ui.error_2.show()
             return
 
-        success, message = register_user(name, email, password)
+        success, message = self.register_func(name, email, password)
         if success:
             QMessageBox.information(self, "Success", message)
-            self.open_signin()
+            self.open_signin(prefill_email=email)
         else:
             self.ui.error_2.show()
             self.ui.error_2.setText(message)

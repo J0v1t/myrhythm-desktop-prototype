@@ -31,6 +31,23 @@ python run.py
 
 The app creates `instance/myrhythm.db` locally. That database is ignored by Git.
 
+### Supabase Auth
+
+The Sign In and Sign Up screens use Supabase email/password authentication. Copy `.env.example` to `.env` before running the app, then keep only the Supabase project URL and publishable key in that file. Do not add service-role keys, object-storage secrets, or database passwords to the desktop client.
+
+After a successful account creation, the app opens the Sign In screen with the new email already filled in. If email confirmation is enabled in Supabase, confirm the account from the email inbox before signing in.
+
+### Cloud Asset Backend
+
+Curated tracks, cover art, and model binaries are stored in private Cloudflare R2 buckets. The desktop app does not contain R2 credentials; it uses the Cloudflare Worker at `MYRHYTHM_ASSET_API_BASE_URL` with the signed-in user's Supabase access token.
+
+Live demo buckets:
+
+- `myrhythm-music-assets`: 236 tracks and 233 matched cover images
+- `myrhythm-ml-models`: 4 model/scaler artifacts
+
+The Worker is deployed at `https://myrhythm-assets-api.zctrl7801.workers.dev`. Its Supabase publishable key is stored as a Wrangler secret, not in source control.
+
 ### Demo Reviewer Data
 
 To populate a local SQLite database with generated demo tracks and generated cover art:
@@ -39,14 +56,7 @@ To populate a local SQLite database with generated demo tracks and generated cov
 python scripts/seed_demo_assets.py
 ```
 
-Then sign in with:
-
-```text
-Email: demo@myrhythm.local
-Password: demo123
-```
-
-The generated audio, covers, and database stay under `instance/` and are ignored by Git.
+The generated audio, covers, and database stay under `instance/` and are ignored by Git. This seed script does not create a Supabase Auth account; create a reviewer account from the Sign Up screen or Supabase dashboard.
 
 ### Optional Real-Device Features
 
@@ -65,7 +75,8 @@ Use a local webcam and a BLE heart-rate monitor that exposes the standard Heart 
 ```text
 myrhythm-desktop-prototype/
   app/
-    auth/       # Prototype auth logic
+    auth/       # Supabase Auth adapter and auth logic
+    cloud/      # Supabase Data API and Cloudflare asset API clients
     database/   # SQLAlchemy schema and models
     fer/        # Facial emotion recognition scripts
     gui/        # PyQt windows and Qt Designer files
@@ -98,7 +109,7 @@ The staged cloud direction is documented in [docs/prd-cloud-migration.md](docs/p
 
 - Release scan found no committed heavy media, model, dataset, database, or secret files
 - `python -m compileall -q app tests` passed
-- `python -m pytest tests` passed with 3 tests passing and 2 optional dependency suites skipped in the bare local environment
+- `python -m pytest tests` passed in the local development environment
 
 ## Future Improvements
 

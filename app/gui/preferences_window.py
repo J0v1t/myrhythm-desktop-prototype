@@ -10,9 +10,10 @@ from app.database.models.preference import UserPreferences
 from app.database.schema import db
 
 class PreferencesWindow(QtWidgets.QMainWindow):
-    def __init__(self, user, parent=None):
+    def __init__(self, user, parent=None, save_preferences_func=None):
         super().__init__(parent)
         self.user = user
+        self.save_preferences_func = save_preferences_func
         self.setWindowFlags(QtCore.Qt.FramelessWindowHint)
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
         self.resize(1100, 928)
@@ -149,6 +150,15 @@ class PreferencesWindow(QtWidgets.QMainWindow):
     # --- Save preferences ---
     def save_preferences(self):
         if self.user:
+            if self.save_preferences_func:
+                self.save_preferences_func(
+                    self.user.id,
+                    self.selected_genres,
+                    self.selected_artists,
+                    {},
+                )
+                return
+
             preferences = UserPreferences(
                 user_id=self.user.id,
                 favorite_genres=','.join(self.selected_genres),
