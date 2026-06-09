@@ -62,7 +62,7 @@ class Ui_Form(object):
             "border-bottom-left-radius:40px;"
         )
         self.label_3.setText("")
-        self.label_3.setPixmap(QtGui.QPixmap(os.path.join(media_path, "auth_hero.png")))
+        self.label_3.setPixmap(QtGui.QPixmap(os.path.join(media_path, "auth_hero.jpg")))
         self.label_3.setScaledContents(True)
         self.label_3.setAlignment(QtCore.Qt.AlignCenter)
         self.label_3.setObjectName("label_3")
@@ -145,10 +145,10 @@ class Ui_Form(object):
 
         # Logo
         self.label_9 = QtWidgets.QLabel(self.widget)
-        self.label_9.setGeometry(QtCore.QRect(80, 40, 311, 291))
+        self.label_9.setGeometry(QtCore.QRect(115, 65, 241, 115))
         self.label_9.setPixmap(QtGui.QPixmap(os.path.join(media_path, "myrhythm_logo.svg")))
         self.label_9.setScaledContents(True)
-        self.label_9.setVisible(False)
+        self.label_9.setVisible(True)
         self.label_9.setObjectName("label_9")
 
         # Eye icon for password

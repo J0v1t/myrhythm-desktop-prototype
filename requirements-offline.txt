@@ -1,16 +1,5 @@
 -r requirements.txt
 
-# Offline ingestion, legacy SQLite tools, model training, and report generation.
-deepface
-imbalanced-learn==0.12.4
-joblib
-librosa
-matplotlib
-mutagen
-pandas
-scikit-learn==1.3.2
-scipy
-seaborn
-soundfile
+# Legacy SQLite development tools.
 SQLAlchemy
 Werkzeug

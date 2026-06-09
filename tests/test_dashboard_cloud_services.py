@@ -1,7 +1,10 @@
 from pathlib import Path
 from types import SimpleNamespace
 
-from app.gui.dashboard2 import DashboardWindow
+import pytest
+from PyQt5 import QtCore, QtWidgets
+
+from app.gui.dashboard2 import DashboardWindow, HoverAccentFilter, Ui_Form
 from app.gui.recognition import Recognition
 
 
@@ -21,6 +24,11 @@ class FakeCloudServices:
     def prepare_track(self, song):
         self.prepared.append(("track", song.id))
         return self.tmp_path / "track.mp3"
+
+
+@pytest.fixture(scope="module")
+def qapp():
+    return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
 
 def test_dashboard_loads_cloud_catalog_without_sqlite(tmp_path):
@@ -79,6 +87,33 @@ def test_dashboard_uses_placeholder_until_cover_download_finishes(tmp_path):
 
     assert resolved == "fallback.png"
     assert services.prepared == []
+
+
+def test_dashboard_queues_cloud_cover_when_placeholder_exists(tmp_path):
+    media_path = tmp_path / "media"
+    media_path.mkdir()
+    placeholder = media_path / "default_cover.png"
+    placeholder.write_bytes(b"placeholder")
+    song = SimpleNamespace(
+        id="song-1",
+        cover_path=str(placeholder),
+        cover_object_key="covers/cloud.webp",
+        cover_checksum_sha256="b" * 64,
+    )
+    queued = []
+    dashboard = SimpleNamespace(
+        ui=SimpleNamespace(media_path=str(media_path)),
+        cloud_services=FakeCloudServices([song], tmp_path),
+        _queued_cover_ids=set(),
+        _cover_thread_pool=SimpleNamespace(start=queued.append),
+        cover_downloaded=lambda *args: None,
+        cover_download_failed=lambda *args: None,
+    )
+
+    DashboardWindow.queue_cover_download(dashboard, song)
+
+    assert len(queued) == 1
+    assert "song-1" in dashboard._queued_cover_ids
 
 
 def test_dashboard_applies_downloaded_cover_to_registered_widgets(tmp_path):
@@ -157,15 +192,58 @@ def test_dashboard_recommended_song_preserves_cloud_asset_references():
                 "genre": "pop",
                 "track_object_key": "tracks/cloud.mp3",
                 "track_checksum_sha256": "a" * 64,
+                "track_byte_size": 2048,
                 "cover_object_key": "covers/cloud.webp",
                 "cover_checksum_sha256": "b" * 64,
+                "cover_byte_size": 512,
             }
         ],
     )
 
     song = dashboard.playlist[0]
     assert song.track_object_key == "tracks/cloud.mp3"
+    assert song.track_byte_size == 2048
     assert song.cover_object_key == "covers/cloud.webp"
+    assert song.cover_byte_size == 512
+    assert song.cover_path == ""
+
+
+def test_up_next_hides_unused_rows_and_shrinks_card(qapp, tmp_path):
+    form = QtWidgets.QWidget()
+    ui = Ui_Form()
+    ui.setupUi(form)
+    dashboard = SimpleNamespace(
+        ui=ui,
+        playlist=[
+            SimpleNamespace(id="song-1", title="Playing", artist="Artist", cover_path=""),
+            SimpleNamespace(id="song-2", title="Next", artist="Artist", cover_path=""),
+        ],
+        current_index=0,
+        cover_path_for=lambda song, fallback: str(fallback),
+        register_cover_widget=lambda song, widget: None,
+        render_cover_widget=lambda widget, path: None,
+        queue_cover_download=lambda song: None,
+    )
+
+    DashboardWindow.update_up_next(dashboard)
+
+    assert not ui.pushButton_16.isHidden()
+    assert ui.pushButton_17.isHidden()
+    assert ui.label_58.isHidden()
+    assert ui.label_59.isHidden()
+    assert ui.widget_9.maximumHeight() < 220
+
+
+def test_hover_filter_adds_and_removes_visual_accent(qapp):
+    widget = QtWidgets.QPushButton()
+    hover_filter = HoverAccentFilter(widget)
+    widget.installEventFilter(hover_filter)
+
+    QtWidgets.QApplication.sendEvent(widget, QtCore.QEvent(QtCore.QEvent.Enter))
+    assert widget.graphicsEffect() is not None
+
+    QtWidgets.QApplication.sendEvent(widget, QtCore.QEvent(QtCore.QEvent.Leave))
+    assert widget.graphicsEffect() is None
 
 
 def test_recognition_uses_injected_cloud_recommendation_engine():

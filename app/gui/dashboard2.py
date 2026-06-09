@@ -24,6 +24,21 @@ class ClickableLabel(QtWidgets.QLabel):
         super().mouseReleaseEvent(event)
 
 
+class HoverAccentFilter(QtCore.QObject):
+    """Adds a subtle, layout-stable glow to interactive dashboard elements."""
+
+    def eventFilter(self, widget, event):
+        if event.type() == QtCore.QEvent.Enter:
+            effect = QtWidgets.QGraphicsDropShadowEffect(widget)
+            effect.setBlurRadius(18)
+            effect.setOffset(0, 2)
+            effect.setColor(QtGui.QColor(255, 255, 255, 70))
+            widget.setGraphicsEffect(effect)
+        elif event.type() == QtCore.QEvent.Leave:
+            widget.setGraphicsEffect(None)
+        return False
+
+
 class CoverDownloadSignals(QtCore.QObject):
     downloaded = QtCore.pyqtSignal(object, str)
     failed = QtCore.pyqtSignal(object, str)
@@ -283,7 +298,7 @@ class Ui_Form(object):
         self.label_25.setStyleSheet("background-color: rgb(16, 133, 165);\n"
 "border-radius:10px;")
         self.label_25.setText("")
-        self.label_25.setPixmap(QtGui.QPixmap(os.path.join(self.media_path, "default_cover.png")))
+        self.label_25.setPixmap(QtGui.QPixmap(os.path.join(self.media_path, "banner2.webp")))
         self.label_25.setScaledContents(True)
         self.label_25.setObjectName("label_25")
         self.gridLayout_5.addWidget(self.label_25, 0, 1, 1, 1)
@@ -302,7 +317,7 @@ class Ui_Form(object):
 "")
         self.label_26.setTextFormat(QtCore.Qt.AutoText)
         self.label_26.setAlignment(QtCore.Qt.AlignCenter)
-        self.label_26.setPixmap(QtGui.QPixmap(os.path.join(self.media_path, "default_cover.png")))
+        self.label_26.setPixmap(QtGui.QPixmap(os.path.join(self.media_path, "banner3.webp")))
         self.label_26.setScaledContents(True)
         self.label_26.setObjectName("label_26")
         self.gridLayout_5.addWidget(self.label_26, 0, 2, 1, 1)
@@ -312,7 +327,7 @@ class Ui_Form(object):
         self.label_27.setStyleSheet("background-color: rgb(186, 105, 51);\n"
 "border-radius:10px;")
         self.label_27.setText("")
-        self.label_27.setPixmap(QtGui.QPixmap(os.path.join(self.media_path, "default_cover.png")))
+        self.label_27.setPixmap(QtGui.QPixmap(os.path.join(self.media_path, "banner1.webp")))
         self.label_27.setScaledContents(True)
         self.label_27.setObjectName("label_27")
         self.gridLayout_5.addWidget(self.label_27, 0, 0, 1, 1)
@@ -2365,7 +2380,7 @@ class Ui_Form(object):
         self.pushButton_16 = QtWidgets.QPushButton(self.widget_9)
         self.pushButton_16.setMinimumSize(QtCore.QSize(65, 65))
         self.pushButton_16.setMaximumSize(QtCore.QSize(70, 80))
-        self.pushButton_16.setStyleSheet("background-color: rgb(186, 105, 51);\n"
+        self.pushButton_16.setStyleSheet("background-color: transparent;\n"
 "border-radius:5px;")
         self.pushButton_16.setText("")
         self.pushButton_16.setObjectName("pushButton_16")
@@ -2402,7 +2417,7 @@ class Ui_Form(object):
         self.pushButton_17 = QtWidgets.QPushButton(self.widget_9)
         self.pushButton_17.setMinimumSize(QtCore.QSize(65, 65))
         self.pushButton_17.setMaximumSize(QtCore.QSize(70, 80))
-        self.pushButton_17.setStyleSheet("background-color: rgb(186, 105, 51);\n"
+        self.pushButton_17.setStyleSheet("background-color: transparent;\n"
 "border-radius:5px;")
         self.pushButton_17.setText("")
         self.pushButton_17.setObjectName("pushButton_17")
@@ -2439,7 +2454,7 @@ class Ui_Form(object):
         self.pushButton_18 = QtWidgets.QPushButton(self.widget_9)
         self.pushButton_18.setMinimumSize(QtCore.QSize(65, 65))
         self.pushButton_18.setMaximumSize(QtCore.QSize(70, 80))
-        self.pushButton_18.setStyleSheet("background-color: rgb(186, 105, 51);\n"
+        self.pushButton_18.setStyleSheet("background-color: transparent;\n"
 "border-radius:5px;")
         self.pushButton_18.setText("")
         self.pushButton_18.setObjectName("pushButton_18")
@@ -2476,7 +2491,7 @@ class Ui_Form(object):
         self.pushButton_19 = QtWidgets.QPushButton(self.widget_9)
         self.pushButton_19.setMinimumSize(QtCore.QSize(65, 65))
         self.pushButton_19.setMaximumSize(QtCore.QSize(70, 80))
-        self.pushButton_19.setStyleSheet("background-color: rgb(186, 105, 51);\n"
+        self.pushButton_19.setStyleSheet("background-color: transparent;\n"
 "border-radius:5px;")
         self.pushButton_19.setText("")
         self.pushButton_19.setObjectName("pushButton_19")
@@ -2513,7 +2528,7 @@ class Ui_Form(object):
         self.pushButton_20 = QtWidgets.QPushButton(self.widget_9)
         self.pushButton_20.setMinimumSize(QtCore.QSize(65, 65))
         self.pushButton_20.setMaximumSize(QtCore.QSize(70, 80))
-        self.pushButton_20.setStyleSheet("background-color: rgb(186, 105, 51);\n"
+        self.pushButton_20.setStyleSheet("background-color: transparent;\n"
 "border-radius:5px;")
         self.pushButton_20.setText("")
         self.pushButton_20.setObjectName("pushButton_20")
@@ -3001,6 +3016,7 @@ class DashboardWindow(QtWidgets.QWidget):
         self.setup_controls()
         self.setup_slider_events()
         self.setup_home_clickables()
+        self.setup_hover_effects()
         self.load_home_display(self.home_playlist)
 
         if self.playlist:
@@ -3052,6 +3068,29 @@ class DashboardWindow(QtWidgets.QWidget):
         import random
         self.home_playlist = self.playlist.copy()
         random.shuffle(self.home_playlist)
+
+    def setup_hover_effects(self):
+        self._hover_filter = HoverAccentFilter(self)
+        interactive = list(self.findChildren(QtWidgets.QPushButton))
+        interactive.extend(
+            [
+                self.ui.label_25,
+                self.ui.label_26,
+                self.ui.label_27,
+                self.ui.pause_play,
+                self.ui.fastforward,
+                self.ui.backward,
+                self.ui.random,
+                self.ui.repeat,
+                *self.home_images,
+                *self.home_titles,
+                *self.special_covers,
+                *self.special_titles,
+            ]
+        )
+        for widget in dict.fromkeys(interactive):
+            widget.setCursor(QtCore.Qt.PointingHandCursor)
+            widget.installEventFilter(self._hover_filter)
 
     # ------------------- Home Clickable Elements -------------------
     def setup_home_clickables(self):
@@ -3203,13 +3242,19 @@ class DashboardWindow(QtWidgets.QWidget):
             return
         scaled = pixmap.scaled(
             widget.size(),
-            QtCore.Qt.KeepAspectRatio,
+            QtCore.Qt.KeepAspectRatioByExpanding,
             QtCore.Qt.SmoothTransformation,
         )
+        crop_x = max(0, (scaled.width() - widget.width()) // 2)
+        crop_y = max(0, (scaled.height() - widget.height()) // 2)
+        scaled = scaled.copy(crop_x, crop_y, widget.width(), widget.height())
         if isinstance(widget, QtWidgets.QPushButton):
             widget.setIcon(QtGui.QIcon(scaled))
             widget.setIconSize(widget.size())
-            widget.setStyleSheet("padding:0px; border:none;")
+            widget.setStyleSheet(
+                "QPushButton { background-color: transparent; padding: 0px; "
+                "border: none; border-radius: 5px; }"
+            )
         else:
             widget.setPixmap(scaled)
             widget.setScaledContents(True)
@@ -3224,9 +3269,17 @@ class DashboardWindow(QtWidgets.QWidget):
         cover_key = getattr(song, "cover_object_key", "")
         checksum = getattr(song, "cover_checksum_sha256", "")
         cover_id = DashboardWindow.cover_id(song)
+        placeholder = os.path.normcase(
+            os.path.abspath(os.path.join(self.ui.media_path, "default_cover.png"))
+        )
+        local_cover_ready = bool(
+            cover_path
+            and os.path.exists(cover_path)
+            and os.path.normcase(os.path.abspath(str(cover_path))) != placeholder
+        )
         if (
             not self.cloud_services
-            or (cover_path and os.path.exists(cover_path))
+            or local_cover_ready
             or not cover_key
             or not checksum
             or cover_id in self._queued_cover_ids
@@ -3286,7 +3339,9 @@ class DashboardWindow(QtWidgets.QWidget):
     # =====================================================================
     def display_song_metadata(self, song):
         placeholder = os.path.join(self.ui.media_path, "default_cover.png")
+        self.register_cover_widget(song, self.ui.label_52)
         self.render_cover_widget(self.ui.label_52, self.cover_path_for(song, placeholder))
+        self.queue_cover_download(song)
         self.ui.label_4.setText(song.title or "Unknown Title")
         self.ui.label_5.setText(song.artist or "Unknown Artist")
         self.ui.label_54.setText(song.artist or "Unknown Artist")
@@ -3315,28 +3370,14 @@ class DashboardWindow(QtWidgets.QWidget):
 
         placeholder = os.path.join(self.ui.media_path, "default_cover.png")
         cover_path = self.cover_path_for(song, placeholder)
-        pixmap = QtGui.QPixmap(cover_path)
-
-        # Main cover display
-        self.ui.label_52.setPixmap(
-            pixmap.scaled(
-                self.ui.label_52.width(),
-                self.ui.label_52.height(),
-                QtCore.Qt.KeepAspectRatio,
-                QtCore.Qt.SmoothTransformation
-            )
-        )
+        self.register_cover_widget(song, self.ui.label_52)
+        self.render_cover_widget(self.ui.label_52, cover_path)
 
         # Mini player button
         if hasattr(self.ui, 'pushButton'):
-            button_pixmap = pixmap.scaled(
-                self.ui.pushButton.width(),
-                self.ui.pushButton.height(),
-                QtCore.Qt.KeepAspectRatio,
-                QtCore.Qt.SmoothTransformation
-            )
-            self.ui.pushButton.setIcon(QtGui.QIcon(button_pixmap))
-            self.ui.pushButton.setIconSize(QtCore.QSize(self.ui.pushButton.width(), self.ui.pushButton.height()))
+            self.register_cover_widget(song, self.ui.pushButton)
+            self.render_cover_widget(self.ui.pushButton, cover_path)
+        self.queue_cover_download(song)
 
         # Update main labels
         self.ui.label_4.setText(song.title or "Unknown Title")
@@ -3481,7 +3522,7 @@ class DashboardWindow(QtWidgets.QWidget):
     def update_up_next(self):
         """
         Updates the Up Next sidebar labels and buttons.
-        Always shows the next 5 songs after the current one.
+        Shows up to five next songs and collapses unused rows.
         """
         up_next_titles = [self.ui.label_56, self.ui.label_58, self.ui.label_60,
                         self.ui.label_63, self.ui.label_65]
@@ -3489,18 +3530,30 @@ class DashboardWindow(QtWidgets.QWidget):
                         self.ui.label_64, self.ui.label_67]
         up_next_buttons = [self.ui.pushButton_16, self.ui.pushButton_17, self.ui.pushButton_18,
                         self.ui.pushButton_19, self.ui.pushButton_20]
+        up_next_layouts = [self.ui.horizontalLayout_21, self.ui.horizontalLayout_22,
+                        self.ui.horizontalLayout_23, self.ui.horizontalLayout_24,
+                        self.ui.horizontalLayout_25]
 
         placeholder = os.path.join(self.ui.media_path, "default_cover.png")
         idx = getattr(self, "current_index", 0)
 
         # Use current playlist as the source
         next_songs = self.playlist[idx + 1: idx + 6]
+        self.ui.widget_9.setVisible(bool(next_songs))
+        if next_songs:
+            card_height = 75 + (len(next_songs) * 80)
+            self.ui.widget_9.setFixedHeight(card_height)
 
         for i in range(5):
             if i >= len(next_songs):
                 up_next_titles[i].setText("")
                 up_next_artists[i].setText("")
                 up_next_buttons[i].setIcon(QtGui.QIcon())
+                for widget in (up_next_buttons[i], up_next_titles[i], up_next_artists[i]):
+                    widget.setVisible(False)
+                spacer = up_next_layouts[i].itemAt(2).spacerItem()
+                if spacer:
+                    spacer.changeSize(0, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
                 continue
 
             song = next_songs[i]
@@ -3510,18 +3563,16 @@ class DashboardWindow(QtWidgets.QWidget):
 
             up_next_titles[i].setText(title)
             up_next_artists[i].setText(artist)
-
-            pixmap = QtGui.QPixmap(cover_path).scaled(
-                up_next_buttons[i].width(),
-                up_next_buttons[i].height(),
-                QtCore.Qt.KeepAspectRatio,
-                QtCore.Qt.SmoothTransformation
-            )
-            up_next_buttons[i].setIcon(QtGui.QIcon(pixmap))
-            up_next_buttons[i].setIconSize(QtCore.QSize(
-                up_next_buttons[i].width(),
-                up_next_buttons[i].height()
-            ))
+            for widget in (up_next_buttons[i], up_next_titles[i], up_next_artists[i]):
+                widget.setVisible(True)
+            spacer = up_next_layouts[i].itemAt(2).spacerItem()
+            if spacer:
+                spacer.changeSize(
+                    40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum
+                )
+            self.register_cover_widget(song, up_next_buttons[i])
+            self.render_cover_widget(up_next_buttons[i], cover_path)
+            self.queue_cover_download(song)
 
             # Bind click to play the correct song in playlist
             def make_handler(index):
@@ -3592,11 +3643,20 @@ class DashboardWindow(QtWidgets.QWidget):
                 artist=s.get("artist") or "Unknown Artist",
                 genre=s.get("genre") or "Unknown Genre",
                 file_path=s.get("file_path") or "",
-                cover_path=s.get("cover_path") or os.path.join(self.ui.media_path, "default_cover.png"),
+                cover_path=(
+                    ""
+                    if s.get("cover_object_key")
+                    and os.path.basename(str(s.get("cover_path") or "")) == "default_cover.png"
+                    else s.get("cover_path") or ""
+                ),
                 track_object_key=s.get("track_object_key"),
                 track_checksum_sha256=s.get("track_checksum_sha256"),
+                track_content_type=s.get("track_content_type"),
+                track_byte_size=s.get("track_byte_size"),
                 cover_object_key=s.get("cover_object_key"),
                 cover_checksum_sha256=s.get("cover_checksum_sha256"),
+                cover_content_type=s.get("cover_content_type"),
+                cover_byte_size=s.get("cover_byte_size"),
                 recommendation_reason=s.get("recommendation_reason", ""),
             )
             converted.append(temp_song)
@@ -3623,11 +3683,12 @@ class DashboardWindow(QtWidgets.QWidget):
         # Accept both dict and already-converted objects
         if isinstance(song_dict, dict):
             file_path = song_dict.get("file_path") or ""
-            cover_path = (
-                song_dict.get("cover_path")
-                or song_dict.get("cover")
-                or os.path.join(self.ui.media_path, "default_cover.png")
-            )
+            cover_path = song_dict.get("cover_path") or song_dict.get("cover") or ""
+            if (
+                song_dict.get("cover_object_key")
+                and os.path.basename(str(cover_path)) == "default_cover.png"
+            ):
+                cover_path = ""
             temp_song = SimpleNamespace(
                 id=song_dict.get("song_id") or song_dict.get("id"),
                 title=song_dict.get("title", "Unknown Title"),
@@ -3637,8 +3698,12 @@ class DashboardWindow(QtWidgets.QWidget):
                 cover_path=cover_path,
                 track_object_key=song_dict.get("track_object_key"),
                 track_checksum_sha256=song_dict.get("track_checksum_sha256"),
+                track_content_type=song_dict.get("track_content_type"),
+                track_byte_size=song_dict.get("track_byte_size"),
                 cover_object_key=song_dict.get("cover_object_key"),
                 cover_checksum_sha256=song_dict.get("cover_checksum_sha256"),
+                cover_content_type=song_dict.get("cover_content_type"),
+                cover_byte_size=song_dict.get("cover_byte_size"),
                 recommendation_reason=song_dict.get("recommendation_reason", ""),
             )
         else:

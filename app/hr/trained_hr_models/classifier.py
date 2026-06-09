@@ -51,7 +51,7 @@ def load_model_components() -> bool:
         return True # Already loaded
 
     if not status["ready"]:
-        print("\nFATAL ERROR: Model files not found. Ensure 'train_lstm_model.py' has been run successfully.")
+        print("\nHeart-rate model artifact is unavailable.")
         print(f"  Missing: {model_path}")
         return False
 
@@ -65,8 +65,7 @@ def load_model_components() -> bool:
         _lstm_model = tf.keras.models.load_model(model_path, compile=False)
         
         # Manually re-compile the model. We use the same optimizer/loss/metrics
-        # as in train_lstm_model.py
-        # You must ensure the number of classes matches the expected output shape.
+        # The artifact declares the number of output classes.
         num_classes = _lstm_model.output_shape[-1]
         
         _lstm_model.compile(
@@ -81,7 +80,7 @@ def load_model_components() -> bool:
         return True
         
     except FileNotFoundError:
-        print(f"\nFATAL ERROR: Model files not found. Ensure 'train_lstm_model.py' has been run successfully.")
+        print("\nHeart-rate model artifact is unavailable.")
         print(f"  Missing: {model_path}")
         return False
     except Exception as e:

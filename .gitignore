@@ -190,3 +190,7 @@ media/*.jpg
 media/*.jpeg
 media/*.webp
 media/*.gif
+!media/auth_hero.jpg
+!media/banner1.webp
+!media/banner2.webp
+!media/banner3.webp

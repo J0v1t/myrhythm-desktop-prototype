@@ -89,12 +89,12 @@ def test_catalog_record_preserves_recommendation_reason_for_dashboard(tmp_path):
         duration=120,
         file_path="C:/music/mood.mp3",
         cover_path=str(default_cover),
-        recommendation_reason="Recommended for fused mood: Happy",
+        recommendation_reason="On Repeat",
     )
 
     legacy = record.to_simple_namespace()
 
-    assert legacy.recommendation_reason == "Recommended for fused mood: Happy"
+    assert legacy.recommendation_reason == "On Repeat"
 
 
 def test_cloud_song_record_preserves_object_keys_checksums_and_asset_metadata(tmp_path):

@@ -60,7 +60,7 @@ def get_current_filtered_bpm() -> float:
 def calculate_final_emotion_and_save():
     """
     Calculates the final emotion (mode of the history) and saves it to a file.
-    This function is called by real_time_emotion_monitor.py upon shutdown.
+    This function is called when a recognition session shuts down.
     """
     if not _emotion_history:
         final_emotion = "N/A (No prediction data recorded)"

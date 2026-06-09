@@ -1,6 +1,10 @@
 from types import SimpleNamespace
 
-from app.music.recommendation.recommendation_engine import RecommendationEngine
+from app.music.recommendation.recommendation_engine import (
+    PLAYLIST_TITLES,
+    RecommendationEngine,
+    playlist_title_for,
+)
 
 
 class FakeQuery:
@@ -32,7 +36,7 @@ class FakeDb:
         return FakeQuery(self.prefs)
 
 
-def test_recommendation_includes_fused_mood_reason_and_default_cover(tmp_path):
+def test_recommendation_uses_general_playlist_title_and_default_cover(tmp_path):
     song = SimpleNamespace(
         id=1,
         title="Bright Local Track",
@@ -58,8 +62,18 @@ def test_recommendation_includes_fused_mood_reason_and_default_cover(tmp_path):
 
     assert results[0]["title"] == "Bright Local Track"
     assert results[0]["fused_mood"] == "happy"
-    assert results[0]["recommendation_reason"] == "Recommended for fused mood: Happy"
+    assert results[0]["recommendation_reason"] in PLAYLIST_TITLES
+    assert "happy" not in results[0]["recommendation_reason"].lower()
+    assert "recommended for" not in results[0]["recommendation_reason"].lower()
     assert results[0]["cover_path"].endswith("default_cover.png")
+
+
+def test_playlist_title_is_stable_for_the_same_session():
+    first = playlist_title_for("user-1", "neutral")
+    second = playlist_title_for("user-1", "neutral")
+
+    assert first == second
+    assert first in PLAYLIST_TITLES
 
 
 def test_recommendation_uses_injected_cloud_catalog_and_preferences():
