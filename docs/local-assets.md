@@ -1,8 +1,9 @@
 # Local Assets
 
 The reviewer application automatically downloads and verifies cloud assets.
-Local paths are supported only for offline development and ingestion work.
-Install `requirements-offline.txt` for those maintainer-only tools.
+Local paths are supported only for maintainer development and controlled asset
+ingestion. Install `requirements-offline.txt` only when working with the
+retained local SQLite schema.
 
 ## Expected Local Paths
 

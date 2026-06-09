@@ -12,7 +12,7 @@ def _requirements(filename: str) -> set[str]:
     }
 
 
-def test_reviewer_requirements_exclude_offline_training_and_sqlite_tooling():
+def test_reviewer_requirements_exclude_legacy_sqlite_tooling():
     reviewer = _requirements("requirements.txt")
 
     assert reviewer == {
@@ -31,4 +31,4 @@ def test_offline_requirements_include_reviewer_runtime_and_tooling():
     offline = _requirements("requirements-offline.txt")
 
     assert "-r requirements.txt" in offline_text
-    assert {"sqlalchemy", "librosa", "joblib", "scikit-learn"} <= offline
+    assert offline == {"sqlalchemy", "werkzeug"}

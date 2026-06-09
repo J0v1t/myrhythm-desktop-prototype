@@ -51,8 +51,7 @@ The desktop app reads the active model manifest from Supabase, downloads only
 the FER and heart-rate runtime models, verifies registered byte sizes and
 SHA-256 checksums, and caches them outside the repository. It uses a fixed
 heart-rate output-label order rather than deserializing the legacy label
-encoder. Offline music-classifier artifacts are not downloaded by the reviewer
-application.
+encoder.
 
 ## Remaining Risk
 

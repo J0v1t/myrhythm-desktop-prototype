@@ -11,6 +11,8 @@ from app.gui.login_window import LoginWindow
 from app.gui.preferences_window import PreferencesWindow
 from app.gui.signup_window import SignupWindow
 
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
 
 @pytest.fixture(scope="module")
 def qapp():
@@ -22,6 +24,15 @@ def test_login_window_prefills_email(qapp):
     window = LoginWindow(prefill_email="created@example.com")
 
     assert window.ui.lineEdit_7.text() == "created@example.com"
+
+
+def test_auth_windows_use_original_hero_with_visible_logo(qapp):
+    login = LoginWindow()
+    signup = SignupWindow()
+
+    assert os.path.isfile(os.path.join(PROJECT_ROOT, "media", "auth_hero.jpg"))
+    assert not login.ui.label_19.isHidden()
+    assert not signup.ui.label_9.isHidden()
 
 
 def test_signup_success_opens_signin_with_created_email(qapp, monkeypatch):

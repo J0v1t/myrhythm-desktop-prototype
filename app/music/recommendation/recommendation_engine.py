@@ -11,6 +11,7 @@ import os
 import sys
 import json
 import random
+import hashlib
 from collections import defaultdict
 from typing import Any, List, Optional, Dict, Tuple
 
@@ -36,6 +37,25 @@ DEFAULT_WEIGHTS = {
     "genre_preference": 0.25,
     "artist_preference": 0.15
 }
+
+PLAYLIST_TITLES = (
+    "On Repeat",
+    "No Skips Today",
+    "Headphones On",
+    "Main Character Mix",
+    "Late Night Shuffle",
+    "Good Noise Only",
+    "The Soundtrack So Far",
+    "Play It Again",
+)
+
+
+def playlist_title_for(user_id: object, emotion: str) -> str:
+    """Return a stable, playful title without exposing a restrictive mood label."""
+    seed = f"{user_id}:{emotion}".encode("utf-8")
+    index = hashlib.sha256(seed).digest()[0] % len(PLAYLIST_TITLES)
+    return PLAYLIST_TITLES[index]
+
 
 with open(GENRE_MAP_PATH, "r", encoding="utf-8") as f:
     GENRE_TO_EMOTION = json.load(f)
@@ -208,7 +228,7 @@ class RecommendationEngine:
 
         scored = []
         default_cover = DEFAULT_COVER
-        reason = f"Recommended for fused mood: {user_emotion.capitalize()}"
+        reason = playlist_title_for(user_id, user_emotion)
 
         for s in songs:
             score, breakdown = self._score_song(user_emotion, prefs, s)
@@ -222,8 +242,12 @@ class RecommendationEngine:
                 "cover_path": str(resolve_cover_path(s.cover_path, default_cover)),
                 "track_object_key": getattr(s, "track_object_key", None),
                 "track_checksum_sha256": getattr(s, "track_checksum_sha256", None),
+                "track_content_type": getattr(s, "track_content_type", None),
+                "track_byte_size": getattr(s, "track_byte_size", None),
                 "cover_object_key": getattr(s, "cover_object_key", None),
                 "cover_checksum_sha256": getattr(s, "cover_checksum_sha256", None),
+                "cover_content_type": getattr(s, "cover_content_type", None),
+                "cover_byte_size": getattr(s, "cover_byte_size", None),
                 "score": score,
                 "breakdown": breakdown,
                 "fused_mood": user_emotion,

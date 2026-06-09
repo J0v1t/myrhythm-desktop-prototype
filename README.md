@@ -24,13 +24,13 @@ python -m pip install -r requirements.txt
 python run.py
 ```
 
-No `.env` file, local database, seed script, media folder, model download, or
-cloud credential is required. Create an account or sign in, choose preferences,
-and the existing cloud catalog appears in the dashboard.
+No `.env` file, local database, seed script, external media folder, manual model
+download, or cloud credential is required. Create an account or sign in, choose
+preferences, and the existing cloud catalog appears in the dashboard.
 
-`requirements.txt` contains only the reviewer runtime. Maintainers working on
-offline ingestion, legacy SQLite tooling, model training, or generated reports
-can install `requirements-offline.txt` instead.
+`requirements.txt` contains only the reviewer runtime. Maintainers working with
+the retained legacy SQLite development schema can install
+`requirements-offline.txt` instead.
 
 If the live Supabase project has email confirmation enabled, confirm the
 account from the Supabase email before signing in. This is a provider setting,
@@ -51,8 +51,8 @@ native libVLC.
 6. VLC plays the verified local cache file.
 
 The signed-in reviewer flow does not initialize or read SQLite. SQLite modules
-and `scripts/seed_demo_assets.py` remain only as offline development and
-ingestion tooling.
+remain only for local development, and `scripts/seed_demo_assets.py` remains
+the cloud asset-ingestion utility.
 
 ## Security Boundary
 
@@ -76,8 +76,7 @@ verified before the runtime can use them. See
 ## Cloud Assets
 
 - `myrhythm-music-assets`: 236 tracks and 233 matched covers
-- `myrhythm-ml-models`: FER and heart-rate runtime models plus legacy/offline
-  ingestion artifacts
+- `myrhythm-ml-models`: FER and heart-rate runtime models
 - Worker: `https://myrhythm-assets-api.zctrl7801.workers.dev`
 
 Cloud assets are cached under the operating system's user cache directory, not

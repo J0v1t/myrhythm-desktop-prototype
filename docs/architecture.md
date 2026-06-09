@@ -20,7 +20,7 @@ stores private binary assets. The Worker validates Supabase sessions,
 authorizes object metadata, rate-limits requests, and streams R2 objects.
 
 The signed-in runtime does not initialize or query SQLite. Local SQLAlchemy
-modules and sample-ingestion scripts remain for offline development only.
+modules remain for development only.
 
 ## Client Security Boundary
 

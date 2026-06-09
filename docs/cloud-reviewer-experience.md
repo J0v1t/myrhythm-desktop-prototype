@@ -18,8 +18,8 @@ The signed-in application is cloud-first:
 - The Cloudflare Worker authenticates, authorizes, and rate-limits asset
   downloads.
 
-SQLite remains available only to offline ingestion and development scripts. It
-is not part of the signed-in reviewer flow.
+SQLite remains available only for local development. It is not part of the
+signed-in reviewer flow.
 
 ## Runtime Flow
 
@@ -35,8 +35,6 @@ Sign in
 
 When recognition opens, FER and heart-rate recognition use the same
 authenticated cache mechanism for their versioned model artifacts.
-Music-classifier artifacts remain offline ingestion tools and are not required
-by the reviewer application.
 
 ## Local Storage
 
