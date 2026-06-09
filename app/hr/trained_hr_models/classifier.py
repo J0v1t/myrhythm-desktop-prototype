@@ -1,37 +1,41 @@
 import numpy as np
-import os
 from typing import Optional, Any
 
 from app.config.runtime_assets import resolve_runtime_assets
 
-# Define paths for the new LSTM model files
-# NOTE: These files must be created by running 'train_lstm_model.py'
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# The Keras model is now saved as a .keras file
-MODEL_PATH = os.path.join(BASE_DIR, 'lstm_model.keras')
-# The Label Encoder is saved as a separate joblib file
-LE_PATH = os.path.join(BASE_DIR, 'label_encoder.pkl')
+EMOTION_LABELS = (
+    "High_VA",
+    "High_V_Low_A",
+    "Low_VA",
+    "Low_V_High_A",
+)
+SEQUENCE_LENGTH = 10
 
-# Global variables to cache the loaded model and encoder for performance
+# Global variables to cache the loaded model for performance
 _lstm_model: Optional[Any] = None
-_label_encoder: Optional[Any] = None
 _loaded_model_path: Optional[str] = None
-_loaded_label_encoder_path: Optional[str] = None
 
 
 def get_model_artifact_status() -> dict:
     assets = resolve_runtime_assets()
     return {
         "model_path": str(assets.hr_model.path),
-        "label_encoder_path": str(assets.hr_label_encoder.path),
         "model_exists": assets.hr_model.exists,
-        "label_encoder_exists": assets.hr_label_encoder.exists,
-        "ready": assets.hr_model.exists and assets.hr_label_encoder.exists,
+        "ready": assets.hr_model.exists,
     }
+
+
+def decode_emotion_index(predicted_index: int) -> str:
+    """Decode the model's fixed training output order without deserializing code."""
+    index = int(predicted_index)
+    if index < 0 or index >= len(EMOTION_LABELS):
+        raise ValueError(f"Unexpected heart-rate model output index: {index}")
+    return EMOTION_LABELS[index].replace("_", " ").title()
+
 
 def load_model_components() -> bool:
     """
-    Loads the Keras LSTM model and Label Encoder into memory only once.
+    Loads the Keras LSTM model into memory only once.
     
     This function has been updated to handle the 'Adam' object no attribute 'build'
     error by loading the model without compiling, then manually compiling it.
@@ -39,27 +43,19 @@ def load_model_components() -> bool:
     Returns:
         True if successful, False otherwise.
     """
-    global _lstm_model, _label_encoder, _loaded_model_path, _loaded_label_encoder_path
+    global _lstm_model, _loaded_model_path
     
     status = get_model_artifact_status()
     model_path = status["model_path"]
-    label_encoder_path = status["label_encoder_path"]
-
-    if (
-        _lstm_model
-        and _label_encoder
-        and _loaded_model_path == model_path
-        and _loaded_label_encoder_path == label_encoder_path
-    ):
+    if _lstm_model and _loaded_model_path == model_path:
         return True # Already loaded
 
     if not status["ready"]:
         print("\nFATAL ERROR: Model files not found. Ensure 'train_lstm_model.py' has been run successfully.")
-        print(f"  Missing: {model_path} or {label_encoder_path}")
+        print(f"  Missing: {model_path}")
         return False
 
     try:
-        import joblib
         import tensorflow as tf
         from tensorflow.keras.optimizers import Adam
 
@@ -79,17 +75,14 @@ def load_model_components() -> bool:
             metrics=['accuracy']
         )
         
-        # Load the Label Encoder (joblib is standard for scikit-learn encoders)
-        _label_encoder = joblib.load(label_encoder_path)
         _loaded_model_path = model_path
-        _loaded_label_encoder_path = label_encoder_path
         
         print(f"✅ LSTM Model loaded from {model_path}")
         return True
         
     except FileNotFoundError:
         print(f"\nFATAL ERROR: Model files not found. Ensure 'train_lstm_model.py' has been run successfully.")
-        print(f"  Missing: {model_path} or {label_encoder_path}")
+        print(f"  Missing: {model_path}")
         return False
     except Exception as e:
         # The original error ('Adam' object has no attribute 'build') should now be fixed
@@ -98,15 +91,6 @@ def load_model_components() -> bool:
         # HINT: If the error persists, try updating your TensorFlow version or
         # ensuring the model was saved with a compatible Keras version.
         return False
-
-# Import SEQUENCE_LENGTH for consistency (assuming it's used elsewhere)
-try:
-    from app.hr.trained_hr_models.hr_feature_engineering import SEQUENCE_LENGTH
-except ImportError:
-    # Set a fallback default if import fails, but this should be consistent
-    SEQUENCE_LENGTH = 10 
-    print("Warning: SEQUENCE_LENGTH import failed. Using default=10.")
-
 
 def predict_emotion_sequence(hr_sequence: np.ndarray) -> str:
     """
@@ -122,7 +106,7 @@ def predict_emotion_sequence(hr_sequence: np.ndarray) -> str:
     if not load_model_components():
         return "Model Missing"
     
-    global _lstm_model, _label_encoder
+    global _lstm_model
     
     try:
         # The model expects a batch dimension: (1, SEQUENCE_LENGTH, 1)
@@ -136,10 +120,7 @@ def predict_emotion_sequence(hr_sequence: np.ndarray) -> str:
         predicted_index = np.argmax(probabilities)
         
         # 3. Decode the index back to the emotional quadrant string
-        emotion_label = _label_encoder.inverse_transform([predicted_index])[0]
-        
-        # Return the label, capitalized for display (e.g., 'high_va' -> 'High_VA')
-        return emotion_label.replace('_', ' ').title()
+        return decode_emotion_index(predicted_index)
         
     except Exception as e:
         print(f"❌ Error during prediction: {e}")

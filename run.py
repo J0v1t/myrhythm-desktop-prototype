@@ -1,79 +1,72 @@
 import sys
 
-from PyQt5.QtWidgets import QApplication, QDialog
+from PyQt5.QtWidgets import QApplication, QDialog, QMessageBox
 
-from app.database.db_init import init_db
-from app.database.schema import db
-from app.database.models.preference import UserPreferences
-
-from app.cloud.supabase_data import SupabaseDataClient
+from app.cloud.reviewer_services import ReviewerCloudServices
+from app.config.vlc_runtime import check_vlc_readiness
 from app.gui.agreement import AgreementDialog
+from app.gui.dashboard2 import DashboardWindow
 from app.gui.login_window import LoginWindow
 from app.gui.preferences_window import PreferencesWindow
-from app.gui.dashboard2 import DashboardWindow
 
 
-def _cloud_data_client_for(user):
-    access_token = getattr(user, "access_token", None)
-    if not access_token:
-        return None
-    return SupabaseDataClient.from_auth_user(user)
+def create_reviewer_window(
+    user,
+    cloud_services,
+    dashboard_factory=DashboardWindow,
+    preferences_factory=PreferencesWindow,
+):
+    cloud_services.load_catalog()
+    preferences = cloud_services.load_preferences()
+    has_preferences = bool(preferences.get("genres")) and bool(
+        preferences.get("artists")
+    )
 
+    if has_preferences:
+        return dashboard_factory(user.id, cloud_services)
+    return preferences_factory(
+        user,
+        save_preferences_func=cloud_services.save_user_preferences,
+        cloud_services=cloud_services,
+    )
 
-def _has_local_preferences(user):
-    return db.query(UserPreferences).filter_by(user_id=user.id).first() is not None
-
-
-def _has_cloud_preferences(cloud_client, user):
-    preferences = cloud_client.get_user_preferences(user.id)
-    return cloud_client.has_completed_preferences(preferences)
 
 def main():
-    # Initialize the database
-    init_db()
-
-    # Create the Qt application
     app = QApplication(sys.argv)
 
-    agreement = AgreementDialog()
-    agreement_result = agreement.exec_()
-
-    # If the user does NOT accept → exit app
-    if agreement_result != QDialog.Accepted:
-        sys.exit(0)
-        
-    # Show the login window
-    login_window = LoginWindow()
-    if login_window.exec_() == QDialog.Accepted:
-        user = login_window.user
-        cloud_client = _cloud_data_client_for(user)
-
-        # Check if user has preferences set. Supabase Auth users use Supabase
-        # profile/preference rows; legacy local users keep the SQLite fallback.
-        has_preferences = (
-            _has_cloud_preferences(cloud_client, user)
-            if cloud_client
-            else _has_local_preferences(user)
+    vlc_readiness = check_vlc_readiness()
+    if not vlc_readiness.ready:
+        detail = f"\n\nDetails: {vlc_readiness.error}" if vlc_readiness.error else ""
+        QMessageBox.critical(
+            None,
+            "VLC Required",
+            f"{vlc_readiness.message}{detail}",
         )
+        return 1
 
-        if has_preferences:
-            # User has preferences, go directly to dashboard
-            dashboard_window = DashboardWindow(user.id)
-            dashboard_window.show()
-        else:
-            # New user, show preferences first
-            save_preferences_func = (
-                cloud_client.save_user_preferences if cloud_client else None
-            )
-            preferences_window = PreferencesWindow(
-                user,
-                save_preferences_func=save_preferences_func,
-            )
-            preferences_window.show()
+    agreement = AgreementDialog()
+    if agreement.exec_() != QDialog.Accepted:
+        return 0
 
-    # Start the event loop
-    sys.exit(app.exec_())
+    login_window = LoginWindow()
+    if login_window.exec_() != QDialog.Accepted:
+        return 0
+
+    try:
+        cloud_services = ReviewerCloudServices.from_auth_user(login_window.user)
+        reviewer_window = create_reviewer_window(login_window.user, cloud_services)
+    except Exception as exc:
+        QMessageBox.critical(
+            None,
+            "Cloud Service Unavailable",
+            "MyRhythm could not load the authenticated cloud catalog.\n\n"
+            f"Details: {exc}",
+        )
+        return 1
+
+    reviewer_window.show()
+    return app.exec_()
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

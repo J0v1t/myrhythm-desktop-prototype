@@ -60,3 +60,70 @@ def test_recommendation_includes_fused_mood_reason_and_default_cover(tmp_path):
     assert results[0]["fused_mood"] == "happy"
     assert results[0]["recommendation_reason"] == "Recommended for fused mood: Happy"
     assert results[0]["cover_path"].endswith("default_cover.png")
+
+
+def test_recommendation_uses_injected_cloud_catalog_and_preferences():
+    song = SimpleNamespace(
+        id="song-123",
+        title="Cloud Track",
+        artist="Cloud Artist",
+        genre="pop",
+        duration=120,
+        file_path="",
+        cover_path="",
+        track_object_key="tracks/cloud-track.mp3",
+        track_checksum_sha256="a" * 64,
+        cover_object_key="covers/cloud-track.webp",
+        cover_checksum_sha256="b" * 64,
+    )
+    engine = RecommendationEngine(
+        songs=[song],
+        preferences={
+            "favorite_genres": ["pop"],
+            "favorite_artists": ["Cloud Artist"],
+        },
+    )
+
+    results = engine.recommend(
+        user_id="user-123",
+        fer_emotion="happy",
+        top_k=1,
+    )
+
+    assert results[0]["song_id"] == "song-123"
+    assert results[0]["track_object_key"] == "tracks/cloud-track.mp3"
+    assert results[0]["cover_object_key"] == "covers/cloud-track.webp"
+    assert results[0]["track_checksum_sha256"] == "a" * 64
+    assert results[0]["cover_checksum_sha256"] == "b" * 64
+
+
+def test_real_artist_preference_scores_direct_artist_match():
+    preferred = SimpleNamespace(
+        id="preferred",
+        title="Preferred",
+        artist="Real Artist",
+        genre="unknown",
+        file_path="",
+        cover_path="",
+    )
+    other = SimpleNamespace(
+        id="other",
+        title="Other",
+        artist="Different Artist",
+        genre="unknown",
+        file_path="",
+        cover_path="",
+    )
+    engine = RecommendationEngine(
+        songs=[other, preferred],
+        preferences={
+            "favorite_genres": [],
+            "favorite_artists": ["Real Artist"],
+        },
+    )
+
+    results = engine.recommend(user_id="user-1", top_k=2)
+
+    assert results[0]["song_id"] == "preferred"
+    assert results[0]["breakdown"]["artist_preference"] == 1.0
+    assert results[1]["breakdown"]["artist_preference"] == 0.0

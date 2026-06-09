@@ -1,17 +1,18 @@
 # Local Assets
 
-The original project used a local music library, cover images, trained models, and generated outputs. This public copy removes those files.
+The reviewer application automatically downloads and verifies cloud assets.
+Local paths are supported only for offline development and ingestion work.
+Install `requirements-offline.txt` for those maintainer-only tools.
 
 ## Expected Local Paths
 
-Use environment variables or future config adapters to point to local assets:
+Maintainers may use environment variables to point offline tools to local assets:
 
 - `MYRHYTHM_MUSIC_DIR`
 - `MYRHYTHM_SONG_MANIFEST`
 - `MYRHYTHM_SAMPLE_AUDIO`
 - `MYRHYTHM_FER_MODEL_PATH`
 - `MYRHYTHM_HR_MODEL_PATH`
-- `MYRHYTHM_HR_LABEL_ENCODER_PATH`
 
 ## Song Manifest
 
@@ -32,12 +33,6 @@ Required fields:
 
 Runtime databases and generated outputs belong under ignored local paths such as `instance/`, `datasets/`, `models/`, or `artifacts/`.
 
-## Real-Device Local Setup
-
-For webcam FER and BLE heart-rate testing, keep model artifacts outside Git and point the app to them with:
-
-- `MYRHYTHM_FER_MODEL_PATH`
-- `MYRHYTHM_HR_MODEL_PATH`
-- `MYRHYTHM_HR_LABEL_ENCODER_PATH`
-
-The desktop app should show missing model, missing camera, or missing BLE device status in the Recognition window. It should not persist raw webcam frames, face crops, or raw heart-rate streams by default.
+The signed-in app provisions FER and heart-rate runtime models automatically.
+It reports missing camera or BLE device status in the Recognition window and
+does not persist raw webcam frames, face crops, or raw heart-rate streams.

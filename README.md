@@ -1,126 +1,120 @@
 # MyRhythm Desktop Prototype
 
-<p>
-  <a href="https://skillicons.dev">
-    <img alt="MyRhythm stack" src="https://skillicons.dev/icons?i=python,qt,sqlite,opencv,tensorflow,scikitlearn&theme=light&perline=6">
-  </a>
-</p>
+MyRhythm is a PyQt desktop prototype for emotion-aware music recommendation.
+The reviewer application uses Supabase Auth and metadata, then securely streams
+private tracks, covers, and runtime models from Cloudflare R2 through an
+authenticated Cloudflare Worker.
 
-MyRhythm is an academic desktop prototype for emotion-aware music recommendation. It combines a PyQt interface, local preferences, music metadata, webcam-based facial emotion recognition modules, and BLE heart-rate modules to explore how mood signals could influence song recommendations.
+## Reviewer Setup
 
-This public copy is sanitized for portfolio review. It keeps the application structure and documentation, but excludes private datasets, model artifacts, generated outputs, local databases, and music files.
+Prerequisites:
 
-## What It Demonstrates
+- Python 3.10
+- [VLC media player 3.x, 64-bit](https://www.videolan.org/vlc/) installed for
+  native libVLC playback
+- Internet access
+- A webcam or BLE heart-rate monitor only when testing those optional inputs
 
-- PyQt screens for agreement, login, preferences, recognition, and dashboard flows
-- SQLAlchemy models for users, preferences, songs, and audio features
-- Recommendation logic that ranks songs using detected emotion labels and stored preferences
-- Facial emotion recognition pipeline code for webcam-based FER experiments
-- BLE heart-rate reader and heart-rate emotion-classification scripts
-- Asset, model, and storage documentation for a safer public rebuild
-
-## Run Locally
+Run:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-Copy-Item .env.example .env
+python -m pip install -r requirements.txt
 python run.py
 ```
 
-The app creates `instance/myrhythm.db` locally. That database is ignored by Git.
+No `.env` file, local database, seed script, media folder, model download, or
+cloud credential is required. Create an account or sign in, choose preferences,
+and the existing cloud catalog appears in the dashboard.
 
-### Supabase Auth
+`requirements.txt` contains only the reviewer runtime. Maintainers working on
+offline ingestion, legacy SQLite tooling, model training, or generated reports
+can install `requirements-offline.txt` instead.
 
-The Sign In and Sign Up screens use Supabase email/password authentication. Copy `.env.example` to `.env` before running the app, then keep only the Supabase project URL and publishable key in that file. Do not add service-role keys, object-storage secrets, or database passwords to the desktop client.
+If the live Supabase project has email confirmation enabled, confirm the
+account from the Supabase email before signing in. This is a provider setting,
+not a reviewer configuration step.
 
-After a successful account creation, the app opens the Sign In screen with the new email already filled in. If email confirmation is enabled in Supabase, confirm the account from the email inbox before signing in.
+The app checks native VLC before login and explains the prerequisite if it is
+missing. `python-vlc` is only the Python binding; installing it does not install
+native libVLC.
 
-### Cloud Asset Backend
+## Cloud Reviewer Flow
 
-Curated tracks, cover art, and model binaries are stored in private Cloudflare R2 buckets. The desktop app does not contain R2 credentials; it uses the Cloudflare Worker at `MYRHYTHM_ASSET_API_BASE_URL` with the signed-in user's Supabase access token.
+1. Supabase Auth signs the reviewer in.
+2. Supabase returns the active song catalog and the reviewer's preferences.
+3. Real artists from that catalog populate onboarding preferences.
+4. Visible covers load in the background, selected tracks load on demand, and
+   required FER/heart-rate models load when the reviewer opens recognition.
+5. Every downloaded asset is SHA-256 verified and cached outside the repository.
+6. VLC plays the verified local cache file.
 
-Live demo buckets:
+The signed-in reviewer flow does not initialize or read SQLite. SQLite modules
+and `scripts/seed_demo_assets.py` remain only as offline development and
+ingestion tooling.
 
-- `myrhythm-music-assets`: 236 tracks and 233 matched cover images
-- `myrhythm-ml-models`: 4 model/scaler artifacts
+## Security Boundary
 
-The Worker is deployed at `https://myrhythm-assets-api.zctrl7801.workers.dev`. Its Supabase publishable key is stored as a Wrangler secret, not in source control.
+Desktop applications are public clients. Reviewers can inspect the Supabase
+project URL, publishable key, Worker URL, and request shapes, so none of those
+values are treated as secrets.
 
-Before sharing the app publicly, review [docs/production-security.md](docs/production-security.md). The Worker enforces authenticated asset access and rate limits, while Supabase email confirmation, CAPTCHA, and auth rate-limit settings must be enabled in the Supabase dashboard.
+Sensitive credentials are not shipped:
 
-### Demo Reviewer Data
+- no Supabase service-role key
+- no R2 access key or secret
+- no database password
+- no Cloudflare API token
 
-To populate a local SQLite database with generated demo tracks and generated cover art:
+The Worker owns private R2 bindings, verifies each Supabase session, checks
+asset metadata authorization, rejects unknown keys and oversized objects, and
+enforces IP and per-user rate limits. Downloads are byte-size and checksum
+verified before the runtime can use them. See
+[Production Security](docs/production-security.md).
 
-```powershell
-python scripts/seed_demo_assets.py
-```
+## Cloud Assets
 
-The generated audio, covers, and database stay under `instance/` and are ignored by Git. This seed script does not create a Supabase Auth account; create a reviewer account from the Sign Up screen or Supabase dashboard.
+- `myrhythm-music-assets`: 236 tracks and 233 matched covers
+- `myrhythm-ml-models`: FER and heart-rate runtime models plus legacy/offline
+  ingestion artifacts
+- Worker: `https://myrhythm-assets-api.zctrl7801.workers.dev`
 
-### Optional Real-Device Features
+Cloud assets are cached under the operating system's user cache directory, not
+inside the clone. Deleting the cache is safe; the app will fetch and verify
+assets again.
 
-To run webcam FER and BLE heart-rate recognition, keep model artifacts outside Git and set:
+## Optional Device Features
 
-```powershell
-$env:MYRHYTHM_FER_MODEL_PATH="C:/path/to/models/myrhythm_fer.h5"
-$env:MYRHYTHM_HR_MODEL_PATH="C:/path/to/models/lstm_model.keras"
-$env:MYRHYTHM_HR_LABEL_ENCODER_PATH="C:/path/to/models/label_encoder.pkl"
-```
-
-Use a local webcam and a BLE heart-rate monitor that exposes the standard Heart Rate Measurement characteristic. The app keeps raw webcam frames and raw heart-rate streams local by default and uses only summary mood labels for recommendations.
+Webcam FER and BLE heart-rate recognition remain optional. Required runtime
+models are provisioned automatically when recognition opens. Raw webcam frames
+and raw heart-rate streams stay local by default; the recommender consumes
+summary mood labels.
 
 ## Project Map
 
 ```text
-myrhythm-desktop-prototype/
-  app/
-    auth/       # Supabase Auth adapter and auth logic
-    cloud/      # Supabase Data API and Cloudflare asset API clients
-    database/   # SQLAlchemy schema and models
-    fer/        # Facial emotion recognition scripts
-    gui/        # PyQt windows and Qt Designer files
-    hr/         # BLE heart-rate and HR model scripts
-    logic/      # User session and preferences
-    music/      # Metadata, features, scanner, and recommendation logic
-  docs/         # Architecture, asset policy, model notes, and storage plan
-  media/        # Lightweight UI icons and logos
-  sample_data/  # Example song manifest shape
-  tests/
+app/
+  auth/       Supabase Auth client
+  cloud/      Supabase metadata, Worker client, and verified asset cache
+  database/   Offline/local development schema and models
+  fer/        Facial-emotion recognition
+  gui/        PyQt application windows
+  hr/         BLE heart-rate recognition
+  music/      Catalog and recommendation logic
+cloudflare/
+  worker/     Authenticated, authorized, rate-limited R2 gateway
+docs/         Architecture, security, and asset documentation
+tests/        Unit and integration-contract tests
 ```
-
-## Not Included
-
-- MP3 files, cover art, and bulk local music libraries
-- Trained FER, heart-rate, or music-classifier model files
-- Training datasets, generated reports, runtime logs, or local databases
-- Raw webcam captures, face images, raw heart-rate streams, or emotion logs
-- Cloud credentials or third-party auth secrets
-
-Use [docs/local-assets.md](docs/local-assets.md), [docs/model-artifacts.md](docs/model-artifacts.md), and [sample_data/song_manifest.example.csv](sample_data/song_manifest.example.csv) when rebuilding local assets.
-
-## Team Notes
-
-Emotion and heart-rate signals are sensitive, health-adjacent data. Keep this prototype local-first unless a backend, consent flow, and storage policy are ready. Do not frame the project as medical software, therapy, stress reduction, or a production wearable product.
-
-The staged cloud direction is documented in [docs/prd-cloud-migration.md](docs/prd-cloud-migration.md): keep PyQt as the client, add a backend before cloud storage, and keep object-storage/database secrets server-side.
 
 ## Verification
 
-- Release scan found no committed heavy media, model, dataset, database, or secret files
-- `python -m compileall -q app tests` passed
-- `python -m pytest tests` passed in the local development environment
+```powershell
+python -m compileall -q app tests run.py
+python -m pytest -q
+```
 
-## Future Improvements
-
-- Add screenshots or a short demo clip from the sanitized copy
-- Add clearer dependency groups for base app, FER, HR, and audio features
-- Add more unit tests around recommendation and database behavior
-- Finish wiring playback/model loading to the cloud asset client
-- Build a backend only after the local prototype and privacy boundaries are stable
-
-## Portfolio Framing
-
-Built an academic PyQt desktop prototype for emotion-aware music recommendation using webcam facial-emotion modules, BLE heart-rate input modules, SQLite-backed preferences, and local music metadata.
+The repository intentionally excludes bulk media, model binaries, training
+datasets, generated reports, runtime logs, local databases, and all sensitive
+credentials.

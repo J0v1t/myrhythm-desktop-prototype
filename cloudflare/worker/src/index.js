@@ -1,6 +1,7 @@
 const MUSIC_PREFIX = "/assets/music/";
 const MODEL_PREFIX = "/assets/models/";
 const RATE_LIMITED = "rate_limited";
+const RATE_LIMITER_UNAVAILABLE = "rate_limiter_unavailable";
 
 export default {
   async fetch(request, env) {
@@ -28,7 +29,8 @@ export default {
 
     const ipLimit = await checkRateLimit(env.IP_RATE_LIMITER, ipRateKey(request, route));
     if (!ipLimit.success) {
-      return rateLimited(env);
+      logSecurityEvent(ipLimit.unavailable ? RATE_LIMITER_UNAVAILABLE : RATE_LIMITED, route);
+      return ipLimit.unavailable ? serviceUnavailable(env) : rateLimited(env);
     }
 
     if (route.group === "models" && env.ALLOW_MODEL_DOWNLOADS !== "true") {
@@ -37,6 +39,7 @@ export default {
 
     const authResult = await validateSupabaseToken(request, env);
     if (!authResult.ok) {
+      logSecurityEvent("authentication_denied", route, { reason: authResult.error });
       return json({ error: authResult.error }, 401, env);
     }
 
@@ -45,17 +48,29 @@ export default {
       : env.USER_ASSET_RATE_LIMITER;
     const userLimit = await checkRateLimit(userLimiter, userRateKey(authResult.user, route));
     if (!userLimit.success) {
-      return rateLimited(env);
+      logSecurityEvent(userLimit.unavailable ? RATE_LIMITER_UNAVAILABLE : RATE_LIMITED, route);
+      return userLimit.unavailable ? serviceUnavailable(env) : rateLimited(env);
     }
 
     const authorized = await authorizeAssetAccess(route, authResult.token, env);
     if (!authorized) {
+      logSecurityEvent("authorization_denied", route);
       return json({ error: "asset_forbidden" }, 403, env);
+    }
+
+    const maximumSize = assetSizeLimit(route.group, env);
+    if (maximumSize === null) {
+      logSecurityEvent("asset_size_limit_unavailable", route);
+      return serviceUnavailable(env);
     }
 
     const object = await route.bucket.get(route.key);
     if (!object) {
       return json({ error: "asset_not_found" }, 404, env);
+    }
+    if (object.size > maximumSize) {
+      logSecurityEvent("asset_too_large", route, { byteSize: object.size });
+      return assetTooLarge(env);
     }
 
     return new Response(object.body, {
@@ -118,9 +133,13 @@ export function safeObjectKey(rawKey) {
 
 async function checkRateLimit(limiter, key) {
   if (!limiter) {
-    return { success: true };
+    return { success: false, unavailable: true };
   }
-  return limiter.limit({ key });
+  try {
+    return await limiter.limit({ key });
+  } catch {
+    return { success: false, unavailable: true };
+  }
 }
 
 function ipRateKey(request, route) {
@@ -215,6 +234,36 @@ function rateLimited(env) {
       "Retry-After": "60",
     },
   });
+}
+
+function serviceUnavailable(env) {
+  return json({ error: RATE_LIMITER_UNAVAILABLE }, 503, env);
+}
+
+function assetTooLarge(env) {
+  return new Response(JSON.stringify({ error: "asset_too_large" }), {
+    status: 413,
+    headers: {
+      ...corsHeaders(env),
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+function assetSizeLimit(group, env) {
+  const rawValue = group === "models"
+    ? env.MAX_MODEL_ASSET_BYTES
+    : env.MAX_MUSIC_ASSET_BYTES;
+  const parsed = Number(rawValue);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function logSecurityEvent(event, route, details = {}) {
+  console.warn(JSON.stringify({
+    event,
+    assetGroup: route?.group || "unknown",
+    ...details,
+  }));
 }
 
 function corsHeaders(env) {

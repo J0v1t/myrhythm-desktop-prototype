@@ -134,6 +134,7 @@ logs/
 # Temporary files
 *.tmp
 *.temp
+*.cpuprofile
 
 # IDE
 .vscode/settings.json

@@ -12,8 +12,11 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 # Direct imports from local files
 try:
     from app.hr.trained_hr_models.kalman_filter import KalmanFilterHR
-    from app.hr.trained_hr_models.classifier import predict_emotion_sequence, load_model_components
-    from app.hr.trained_hr_models.hr_feature_engineering import SEQUENCE_LENGTH
+    from app.hr.trained_hr_models.classifier import (
+        SEQUENCE_LENGTH,
+        load_model_components,
+        predict_emotion_sequence,
+    )
 except ImportError as e:
     print(f"❌ Error during import: {e}")
     sys.exit(1)

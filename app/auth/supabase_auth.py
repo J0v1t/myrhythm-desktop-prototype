@@ -17,7 +17,7 @@ from urllib import request
 
 
 DEFAULT_SUPABASE_URL = "https://yyjlkqvrjabcuuugpvyg.supabase.co"
-DEFAULT_SUPABASE_PUBLIC_KEY = ""
+DEFAULT_SUPABASE_PUBLIC_KEY = "sb_publishable_7iqov_85_d7Xn1aRs09EOg_PrZTNJYi"
 REQUEST_TIMEOUT_SECONDS = 15
 
 

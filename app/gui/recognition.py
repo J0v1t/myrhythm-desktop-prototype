@@ -377,11 +377,18 @@ class Ui_Form(object):
     
 
 class Recognition(QtWidgets.QWidget, Ui_Form):
-    def __init__(self, user_id, dashboard=None ,parent=None):
+    def __init__(
+        self,
+        user_id,
+        dashboard=None,
+        parent=None,
+        recommendation_engine_factory=None,
+    ):
         super().__init__(parent)
         self.setupUi(self)    
         self.user_id = user_id
-        self.dashboard = dashboard 
+        self.dashboard = dashboard
+        self.recommendation_engine_factory = recommendation_engine_factory
 
         # State
         self.hr_worker = None
@@ -637,7 +644,11 @@ class Recognition(QtWidgets.QWidget, Ui_Form):
     def open_recommendations(self):
         from app.music.recommendation.recommendation_engine import RecommendationEngine
 
-        engine = RecommendationEngine()
+        engine = (
+            self.recommendation_engine_factory()
+            if self.recommendation_engine_factory
+            else RecommendationEngine()
+        )
 
         inputs = self.signal_session.recommendation_inputs()
 

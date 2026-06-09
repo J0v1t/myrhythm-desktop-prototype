@@ -1,6 +1,10 @@
 from types import SimpleNamespace
 
-from app.music.catalog import SongCatalogRecord, normalize_song_record
+from app.music.catalog import (
+    SongCatalogRecord,
+    normalize_cloud_song_record,
+    normalize_song_record,
+)
 
 
 def test_normalize_song_record_uses_default_cover_for_missing_cover(tmp_path):
@@ -91,3 +95,90 @@ def test_catalog_record_preserves_recommendation_reason_for_dashboard(tmp_path):
     legacy = record.to_simple_namespace()
 
     assert legacy.recommendation_reason == "Recommended for fused mood: Happy"
+
+
+def test_cloud_song_record_preserves_object_keys_checksums_and_asset_metadata(tmp_path):
+    default_cover = tmp_path / "default_cover.png"
+    default_cover.write_bytes(b"default")
+
+    record = normalize_cloud_song_record(
+        {
+            "id": "song-123",
+            "title": "Cloud Track",
+            "artist": "Cloud Artist",
+            "genre": "pop",
+            "duration_seconds": 123.5,
+            "license_status": "licensed",
+            "source_notes": "curated",
+            "track_asset": {
+                "object_key": "tracks/cloud-track.mp3",
+                "checksum_sha256": "a" * 64,
+                "content_type": "audio/mpeg",
+                "byte_size": 2048,
+            },
+            "cover_asset": {
+                "object_key": "covers/cloud-track.webp",
+                "checksum_sha256": "b" * 64,
+                "content_type": "image/webp",
+                "byte_size": 512,
+            },
+        },
+        default_cover=default_cover,
+    )
+
+    assert record.id == "song-123"
+    assert record.file_path == ""
+    assert record.cover_path == str(default_cover)
+    assert record.track_object_key == "tracks/cloud-track.mp3"
+    assert record.track_checksum_sha256 == "a" * 64
+    assert record.track_content_type == "audio/mpeg"
+    assert record.track_byte_size == 2048
+    assert record.cover_object_key == "covers/cloud-track.webp"
+    assert record.cover_checksum_sha256 == "b" * 64
+    assert record.cover_content_type == "image/webp"
+    assert record.cover_byte_size == 512
+
+    legacy = record.to_simple_namespace()
+    assert legacy.track_object_key == record.track_object_key
+    assert legacy.track_checksum_sha256 == record.track_checksum_sha256
+    assert legacy.cover_object_key == record.cover_object_key
+    assert legacy.cover_checksum_sha256 == record.cover_checksum_sha256
+
+
+def test_cloud_song_record_preserves_zero_duration(tmp_path):
+    default_cover = tmp_path / "default_cover.png"
+    default_cover.write_bytes(b"default")
+
+    record = normalize_cloud_song_record(
+        {"title": "Zero Duration", "duration_seconds": 0},
+        default_cover=default_cover,
+    )
+
+    assert record.duration == 0
+
+
+def test_cloud_song_record_maps_reverse_related_assets_by_kind(tmp_path):
+    default_cover = tmp_path / "default_cover.png"
+    default_cover.write_bytes(b"default")
+
+    record = normalize_cloud_song_record(
+        {
+            "title": "Cloud Track",
+            "assets": [
+                {
+                    "asset_kind": "cover",
+                    "object_key": "covers/cloud.webp",
+                    "checksum_sha256": "b" * 64,
+                },
+                {
+                    "asset_kind": "track",
+                    "object_key": "tracks/cloud.mp3",
+                    "checksum_sha256": "a" * 64,
+                },
+            ],
+        },
+        default_cover=default_cover,
+    )
+
+    assert record.track_object_key == "tracks/cloud.mp3"
+    assert record.cover_object_key == "covers/cloud.webp"

@@ -6,14 +6,21 @@ from app.gui.preferences1 import Ui_Form as Ui_Form1
 from app.gui.preferences2 import Ui_Form as Ui_Form2
 from app.gui.preferences3 import Ui_Form as Ui_Form3
 from app.gui.dashboard2 import DashboardWindow
-from app.database.models.preference import UserPreferences
-from app.database.schema import db
 
 class PreferencesWindow(QtWidgets.QMainWindow):
-    def __init__(self, user, parent=None, save_preferences_func=None):
+    def __init__(
+        self,
+        user,
+        parent=None,
+        save_preferences_func=None,
+        dashboard_factory=DashboardWindow,
+        cloud_services=None,
+    ):
         super().__init__(parent)
         self.user = user
         self.save_preferences_func = save_preferences_func
+        self.dashboard_factory = dashboard_factory
+        self.cloud_services = cloud_services
         self.setWindowFlags(QtCore.Qt.FramelessWindowHint)
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
         self.resize(1100, 928)
@@ -31,8 +38,7 @@ class PreferencesWindow(QtWidgets.QMainWindow):
         # Genres and Artists
         self.genres = ["HIP-HOP", "ELECTRONIC", "FOLK", "ROCK", "INSTRUMENTAL",
                        "INTERNATIONAL", "ACOUSTIC", "EXPERIMENTAL", "POP"]
-        self.artists = ["ARTIST A", "ARTIST B", "ARTIST C", "ARTIST D",
-                        "ARTIST E", "ARTIST F", "ARTIST G", "ARTIST H", "ARTIST I"]
+        self.artists = []
 
         # Setup widgets
         self.widget1 = QtWidgets.QWidget(self)
@@ -58,15 +64,35 @@ class PreferencesWindow(QtWidgets.QMainWindow):
         ]
         self.genre_labels = [lbl for lbl in self.genre_labels if lbl is not None]
 
-        # --- Artist labels ---
-        self.artist_labels = [
-            self.ui2.angry1, self.ui2.angry2, self.ui2.happy1,
-            self.ui2.happy2, self.ui2.neutral1, self.ui2.neutral2,
-            self.ui2.sad1, self.ui2.sad2, self.ui2.sad3
+        # --- Artist cards and visible name overlays ---
+        self.artist_cards = [
+            self.ui2.happy1, self.ui2.sad2, self.ui2.happy2,
+            self.ui2.angry1, self.ui2.sad3, self.ui2.neutral1,
+            self.ui2.neutral2, self.ui2.sad1, self.ui2.angry2
         ]
+        self.artist_labels = [
+            self.ui2.label_15, self.ui2.label_16, self.ui2.label_17,
+            self.ui2.label_18, self.ui2.label_19, self.ui2.label_23,
+            self.ui2.label_22, self.ui2.label_20, self.ui2.label_21
+        ]
+        list_artists = getattr(self.cloud_services, "list_artists", None)
+        if callable(list_artists):
+            cloud_artists = list_artists(limit=len(self.artist_cards))
+            if cloud_artists:
+                self.artists = cloud_artists
+        for index, (card, label) in enumerate(zip(self.artist_cards, self.artist_labels)):
+            if index < len(self.artists):
+                label.setText(self.artists[index])
+                label.setWordWrap(True)
+                label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+                card.show()
+                label.show()
+            else:
+                card.hide()
+                label.hide()
 
         # Store original styles
-        for label in self.genre_labels + self.artist_labels:
+        for label in self.genre_labels + self.artist_cards:
             label.setProperty("original_style", label.styleSheet())
             label.setCursor(QtCore.Qt.PointingHandCursor)
             label.installEventFilter(self)
@@ -84,8 +110,8 @@ class PreferencesWindow(QtWidgets.QMainWindow):
                 index = self.genre_labels.index(obj)
                 self.toggle_genre(obj, self.genres[index])
                 return True
-            elif obj in self.artist_labels:
-                index = self.artist_labels.index(obj)
+            elif obj in self.artist_cards:
+                index = self.artist_cards.index(obj)
                 self.toggle_artist(obj, self.artists[index])
                 return True
             elif obj == self.ui2.label_13:
@@ -149,23 +175,13 @@ class PreferencesWindow(QtWidgets.QMainWindow):
 
     # --- Save preferences ---
     def save_preferences(self):
-        if self.user:
-            if self.save_preferences_func:
-                self.save_preferences_func(
-                    self.user.id,
-                    self.selected_genres,
-                    self.selected_artists,
-                    {},
-                )
-                return
-
-            preferences = UserPreferences(
-                user_id=self.user.id,
-                favorite_genres=','.join(self.selected_genres),
-                favorite_artists=','.join(self.selected_artists)
+        if self.user and self.save_preferences_func:
+            self.save_preferences_func(
+                self.user.id,
+                self.selected_genres,
+                self.selected_artists,
+                {},
             )
-            db.add(preferences)
-            db.commit()
 
     # --- Drag ---
     def mousePressEvent(self, event):
@@ -186,7 +202,10 @@ class PreferencesWindow(QtWidgets.QMainWindow):
 
     # --- Dashboard ---
     def go_to_dashboard2(self):
-        self.dashboard_window = DashboardWindow(self.user.id if self.user else None)
+        self.dashboard_window = self.dashboard_factory(
+            self.user.id if self.user else None,
+            self.cloud_services,
+        )
         self.dashboard_window.show()
         self.close()
 

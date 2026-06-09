@@ -74,3 +74,48 @@ def test_preferences_window_uses_injected_cloud_save_function(qapp):
     window.save_preferences()
 
     assert calls == [("user-123", ["ROCK"], ["ARTIST A"], {})]
+
+
+def test_preferences_window_opens_dashboard_with_cloud_services(qapp):
+    opened_with = []
+
+    class FakeUser:
+        id = "user-123"
+
+    class FakeDashboard:
+        def show(self):
+            opened_with.append("shown")
+
+    cloud_services = object()
+    window = PreferencesWindow(
+        FakeUser(),
+        save_preferences_func=lambda *args: None,
+        dashboard_factory=lambda user_id, services: (
+            opened_with.append((user_id, services)) or FakeDashboard()
+        ),
+        cloud_services=cloud_services,
+    )
+
+    window.go_to_dashboard2()
+
+    assert opened_with == [("user-123", cloud_services), "shown"]
+
+
+def test_preferences_window_uses_real_cloud_catalog_artists(qapp):
+    class FakeUser:
+        id = "user-123"
+
+    class FakeCloudServices:
+        def list_artists(self, limit=9):
+            return ["Real Artist", "Another Artist"]
+
+    window = PreferencesWindow(FakeUser(), cloud_services=FakeCloudServices())
+
+    assert window.artists[:2] == ["Real Artist", "Another Artist"]
+    assert window.artist_labels[0].text() == "Real Artist"
+    assert window.artist_labels[1].text() == "Another Artist"
+    assert window.ui2.label_15.text() == "Real Artist"
+    assert window.ui2.label_16.text() == "Another Artist"
+    assert window.artist_cards[0].isVisibleTo(window.widget2)
+    assert window.artist_cards[1].isVisibleTo(window.widget2)
+    assert not window.artist_cards[2].isVisibleTo(window.widget2)

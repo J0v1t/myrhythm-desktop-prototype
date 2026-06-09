@@ -20,16 +20,13 @@ def test_parse_hr_measurement_returns_none_for_incomplete_uint16_payload():
 
 def test_hr_model_artifact_status_uses_runtime_assets(monkeypatch, tmp_path):
     model = tmp_path / "lstm_model.keras"
-    encoder = tmp_path / "label_encoder.pkl"
     model.write_text("model", encoding="utf-8")
-    encoder.write_text("encoder", encoding="utf-8")
     monkeypatch.setenv("MYRHYTHM_HR_MODEL_PATH", str(model))
-    monkeypatch.setenv("MYRHYTHM_HR_LABEL_ENCODER_PATH", str(encoder))
 
     status = get_model_artifact_status()
 
-    assert status["model_path"] == str(model)
-    assert status["label_encoder_path"] == str(encoder)
-    assert status["model_exists"] is True
-    assert status["label_encoder_exists"] is True
-    assert status["ready"] is True
+    assert status == {
+        "model_path": str(model),
+        "model_exists": True,
+        "ready": True,
+    }

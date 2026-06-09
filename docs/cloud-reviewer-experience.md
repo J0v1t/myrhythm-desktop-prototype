@@ -33,9 +33,10 @@ Sign in
   -> play the cached local track with libVLC
 ```
 
-FER and heart-rate recognition use the same authenticated cache mechanism for
-their versioned model artifacts. Music-classifier artifacts remain offline
-ingestion tools and are not required by the reviewer application.
+When recognition opens, FER and heart-rate recognition use the same
+authenticated cache mechanism for their versioned model artifacts.
+Music-classifier artifacts remain offline ingestion tools and are not required
+by the reviewer application.
 
 ## Local Storage
 
@@ -46,7 +47,7 @@ The cache:
 
 - uses stable object-key and checksum-derived paths;
 - writes downloads atomically;
-- verifies SHA-256 before exposing a file to VLC, TensorFlow, or joblib;
+- verifies registered byte size and SHA-256 before exposing a file to the runtime;
 - never stores Supabase, Cloudflare, or R2 credentials;
 - does not require reviewer configuration.
 

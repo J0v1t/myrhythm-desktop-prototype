@@ -1,13 +1,14 @@
 # Storage Plan
 
-## Phase 1: Local-First
+## Current Reviewer Runtime
 
-- SQLite remains the default database.
-- `DATABASE_URL` can override the database URI for future adapters.
-- Music and model files stay local and outside Git.
-- Tests that require audio use `MYRHYTHM_SAMPLE_AUDIO`.
+- Supabase Auth and Postgres are the signed-in source of truth.
+- Cloudflare R2 stores private music, cover, and model binaries.
+- The Cloudflare Worker authenticates, authorizes, and rate-limits downloads.
+- The desktop app caches checksum-verified cloud assets outside the repository.
+- SQLite remains available only for offline development and ingestion scripts.
 
-## Phase 2: Supabase Auth And Metadata
+## Supabase Auth And Metadata
 
 Supabase is now the identity and metadata system for the cloud-backed demo.
 The desktop app uses Supabase Auth for sign-up/sign-in and stores user
@@ -26,7 +27,7 @@ All public tables have row-level security enabled. User-owned tables are scoped
 to `auth.uid()`. Catalog and active model metadata are readable by authenticated
 users, but binary media and model files are not stored in Supabase Postgres.
 
-## Phase 3: Cloudflare R2 Asset Backend
+## Cloudflare R2 Asset Backend
 
 Cloudflare R2 stores binaries only:
 
@@ -36,7 +37,6 @@ Cloudflare R2 stores binaries only:
 - `myrhythm-ml-models`
   - `fer/{version}/myrhythm_fer.h5`
   - `heart-rate/{version}/lstm_model.keras`
-  - `heart-rate/{version}/label_encoder.pkl`
   - `music/{version}/scaler.pkl`
 
 The live demo catalog has 236 track objects, 233 matched cover objects, and 4
@@ -74,9 +74,10 @@ return `401`, and malformed object keys return `400`.
 
 Production abuse controls are tracked in [production-security.md](production-security.md).
 
-## Phase 4: Backend API
+## Optional Future Backend API
 
-Add FastAPI only after the local desktop app is stable.
+Add FastAPI only if future workflows need privileged orchestration beyond the
+current Supabase and Worker boundary.
 
 Backend responsibilities:
 
@@ -95,7 +96,7 @@ Recommended first cloud stack:
 - Supabase Postgres for relational metadata
 - Cloudflare R2 for curated media and model artifacts
 
-Cloudflare R2 should store objects only. Keep metadata in Supabase Postgres or
-SQLite.
+Cloudflare R2 stores objects only. Keep signed-in metadata in Supabase Postgres;
+SQLite is limited to offline tooling.
 
 Never put object-storage secrets, Supabase service-role keys, or database passwords in the desktop client.

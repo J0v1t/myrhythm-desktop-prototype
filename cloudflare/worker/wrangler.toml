@@ -7,7 +7,13 @@ preview_urls = false
 [vars]
 SUPABASE_URL = "https://yyjlkqvrjabcuuugpvyg.supabase.co"
 ALLOWED_ORIGIN = "*"
-ALLOW_MODEL_DOWNLOADS = "false"
+ALLOW_MODEL_DOWNLOADS = "true"
+MAX_MUSIC_ASSET_BYTES = "67108864"
+MAX_MODEL_ASSET_BYTES = "67108864"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
 
 [[ratelimits]]
 name = "IP_RATE_LIMITER"

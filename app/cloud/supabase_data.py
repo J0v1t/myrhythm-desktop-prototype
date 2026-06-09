@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from typing import Callable, Mapping, Optional
 from urllib import error as urlerror
 from urllib import parse, request
@@ -13,12 +14,27 @@ from app.auth.supabase_auth import (
     load_supabase_config,
     normalize_supabase_project_url,
 )
+from app.music.catalog import SongCatalogRecord, normalize_cloud_song_record
 
 
 JsonRequest = Callable[
     [str, str, Mapping[str, str], Optional[Mapping[str, object]], int],
     object,
 ]
+
+
+@dataclass(frozen=True)
+class ModelArtifactRecord:
+    id: object
+    artifact_type: str
+    version: str
+    object_key: str
+    checksum_sha256: str
+    content_type: str = ""
+    byte_size: Optional[int] = None
+    framework: str = ""
+    runtime_version: str = ""
+    compatibility: Optional[Mapping[str, object]] = None
 
 
 def _rest_base_url(project_url: str) -> str:
@@ -119,6 +135,51 @@ class SupabaseDataClient:
             return self._map_preferences(payload)
         return self._map_preferences(response[0])
 
+    def list_song_catalog(self) -> list[SongCatalogRecord]:
+        query = parse.urlencode(
+            {
+                "is_active": "eq.true",
+                "select": (
+                    "*,"
+                    "assets:asset_objects!asset_objects_song_id_fkey(*)"
+                ),
+                "order": "title.asc",
+            }
+        )
+        response = self._request_json(
+            "GET",
+            f"{self.rest_url}/songs?{query}",
+            self._headers(),
+            None,
+            self.timeout,
+        )
+        return [
+            normalize_cloud_song_record(row)
+            for row in (response or [])
+            if isinstance(row, Mapping)
+        ]
+
+    def list_model_artifacts(self) -> list[ModelArtifactRecord]:
+        query = parse.urlencode(
+            {
+                "status": "eq.active",
+                "select": "*,asset:asset_objects!model_artifacts_asset_object_id_fkey(*)",
+                "order": "model_type.asc,version.desc",
+            }
+        )
+        response = self._request_json(
+            "GET",
+            f"{self.rest_url}/model_artifacts?{query}",
+            self._headers(),
+            None,
+            self.timeout,
+        )
+        return [
+            self._map_model_artifact(row)
+            for row in (response or [])
+            if isinstance(row, Mapping)
+        ]
+
     @staticmethod
     def has_completed_preferences(preferences: Optional[Mapping[str, object]]) -> bool:
         if not preferences:
@@ -139,3 +200,30 @@ class SupabaseDataClient:
             "artists": list(row.get("favorite_artists") or []),
             "mood_map": dict(row.get("mood_mapping") or {}),
         }
+
+    @staticmethod
+    def _map_model_artifact(row: Mapping[str, object]) -> ModelArtifactRecord:
+        asset = row.get("asset")
+        if isinstance(asset, list):
+            asset = asset[0] if asset else {}
+        if not isinstance(asset, Mapping):
+            asset = {}
+        compatibility = (
+            row.get("metrics")
+            or row.get("compatibility")
+            or row.get("compatibility_metadata")
+        )
+        return ModelArtifactRecord(
+            id=row.get("id"),
+            artifact_type=str(row.get("model_type") or row.get("artifact_type") or ""),
+            version=str(row.get("version") or ""),
+            object_key=str(asset.get("object_key") or ""),
+            checksum_sha256=str(
+                asset.get("checksum_sha256") or asset.get("sha256") or ""
+            ),
+            content_type=str(asset.get("content_type") or asset.get("mime_type") or ""),
+            byte_size=asset.get("byte_size"),
+            framework=str(row.get("framework") or ""),
+            runtime_version=str(row.get("runtime_version") or ""),
+            compatibility=dict(compatibility) if isinstance(compatibility, Mapping) else {},
+        )

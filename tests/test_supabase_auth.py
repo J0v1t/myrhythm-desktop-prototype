@@ -28,6 +28,13 @@ def test_load_supabase_config_reads_project_url_and_publishable_key():
     assert config.publishable_key == "sb_publishable_test"
 
 
+def test_load_supabase_config_uses_public_reviewer_defaults():
+    config = load_supabase_config({})
+
+    assert config.project_url == "https://yyjlkqvrjabcuuugpvyg.supabase.co"
+    assert config.publishable_key.startswith("sb_publishable_")
+
+
 def test_signup_posts_to_supabase_auth_with_user_metadata():
     calls = []
 
