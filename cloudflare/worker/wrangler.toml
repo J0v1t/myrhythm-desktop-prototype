@@ -1,0 +1,48 @@
+name = "myrhythm-assets-api"
+main = "src/index.js"
+compatibility_date = "2026-06-03"
+workers_dev = true
+preview_urls = false
+
+[vars]
+SUPABASE_URL = "https://yyjlkqvrjabcuuugpvyg.supabase.co"
+ALLOWED_ORIGIN = "*"
+ALLOW_MODEL_DOWNLOADS = "true"
+MAX_MUSIC_ASSET_BYTES = "67108864"
+MAX_MODEL_ASSET_BYTES = "67108864"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[[ratelimits]]
+name = "IP_RATE_LIMITER"
+namespace_id = "481001"
+
+  [ratelimits.simple]
+  limit = 90
+  period = 60
+
+[[ratelimits]]
+name = "USER_ASSET_RATE_LIMITER"
+namespace_id = "481002"
+
+  [ratelimits.simple]
+  limit = 120
+  period = 60
+
+[[ratelimits]]
+name = "USER_MODEL_RATE_LIMITER"
+namespace_id = "481003"
+
+  [ratelimits.simple]
+  limit = 6
+  period = 60
+
+[[r2_buckets]]
+binding = "MUSIC_ASSETS"
+bucket_name = "myrhythm-music-assets"
+
+[[r2_buckets]]
+binding = "ML_MODELS"
+bucket_name = "myrhythm-ml-models"

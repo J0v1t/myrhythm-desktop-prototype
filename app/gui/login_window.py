@@ -8,12 +8,16 @@ from app.auth.login_logic import authenticate_user
 
 
 class LoginWindow(QDialog):
-    def __init__(self):
+    def __init__(self, prefill_email=None, auth_func=authenticate_user):
         super().__init__()
         self.ui = Ui_Form()
         self.ui.setupUi(self)
         self.ui.error.hide()
         self.user = None
+        self.auth_func = auth_func
+        if prefill_email:
+            self.ui.lineEdit_7.setText(prefill_email)
+            self.ui.lineEdit_8.setFocus()
 
         # Connect buttons
         self.ui.pushButton.clicked.connect(self.open_signup)
@@ -43,7 +47,7 @@ class LoginWindow(QDialog):
             self.ui.error.setText("Please enter email and password")
             return
 
-        success, result = authenticate_user(email, password)
+        success, result = self.auth_func(email, password)
         if success:
             self.ui.error.hide()
             self.user = result  # Store user object

@@ -1,48 +1,30 @@
 # MyRhythm Architecture
 
-## Current Public Baseline
-
-MyRhythm is kept local-first for the public baseline.
+## Signed-In Reviewer Runtime
 
 ```mermaid
 flowchart LR
-  User["User"] --> Desktop["PyQt Desktop App"]
-  Desktop --> SQLite["Local SQLite Database"]
-  Desktop --> FER["Webcam FER Modules"]
-  Desktop --> HR["BLE Heart-Rate Modules"]
-  Desktop --> Music["Local Music Metadata"]
-  Desktop --> Recommender["Recommendation Engine"]
+  User["Reviewer"] --> Desktop["PyQt Desktop App"]
+  Desktop --> Auth["Supabase Auth"]
+  Desktop --> Metadata["Supabase Postgres Metadata"]
+  Desktop --> Worker["Cloudflare Worker"]
+  Worker --> R2["Private Cloudflare R2"]
+  R2 --> Cache["Verified User Asset Cache"]
+  Cache --> VLC["Native libVLC Playback"]
+  Cache --> Models["FER and Heart-Rate Runtime Models"]
 ```
 
-The desktop app owns the UI, local authentication prototype, local SQLite cache, webcam and BLE device access, local playback, and offline recommendation behavior.
+Supabase is the source of truth for reviewer identity, preferences, song
+metadata, asset object keys, checksums, and model manifests. Cloudflare R2
+stores private binary assets. The Worker validates Supabase sessions,
+authorizes object metadata, rate-limits requests, and streams R2 objects.
 
-## Future Cloud Boundary
+The signed-in runtime does not initialize or query SQLite. Local SQLAlchemy
+modules and sample-ingestion scripts remain for offline development only.
 
-Cloud work should be added only after the sanitized desktop app is stable.
+## Client Security Boundary
 
-```mermaid
-flowchart LR
-  Desktop["PyQt Desktop App"] --> API["FastAPI Backend"]
-  API --> Auth["Supabase Auth"]
-  API --> DB["Supabase Postgres"]
-  API --> R2["Cloudflare R2 or S3-Compatible Storage"]
-  R2 --> Models["Model Artifacts"]
-  R2 --> Media["Licensed Media Assets"]
-```
-
-The backend should own auth token verification, user profile and preference APIs, music catalog metadata, recommendation APIs for cloud catalog data, model manifests, and signed object URLs.
-
-The desktop app must not contain object-storage secrets, raw cloud database credentials, service-role keys, or upload permissions.
-
-## Candidate Cloud Tables
-
-- `profiles`
-- `user_preferences`
-- `songs`
-- `audio_features`
-- `model_artifacts`
-- `recommendation_runs`
-- `recommendation_items`
-- `emotion_events` for optional label/confidence records only
-
-Raw webcam frames, face images, raw heart-rate streams, and emotion logs should remain local by default.
+The desktop app contains only public client configuration. It never contains
+R2 credentials, a Supabase service-role key, a database password, or a
+Cloudflare API token. Raw webcam frames and raw heart-rate streams remain local
+by default.

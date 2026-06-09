@@ -134,10 +134,13 @@ logs/
 # Temporary files
 *.tmp
 *.temp
+*.cpuprofile
 
 # IDE
 .vscode/settings.json
 .idea/
+.worktrees/
+.wrangler/
 
 # FER
 artifacts/

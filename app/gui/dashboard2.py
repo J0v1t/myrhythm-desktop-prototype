@@ -7,8 +7,6 @@ from types import SimpleNamespace
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from app.gui.recognition import Recognition as Ui_Recognition
-from app.database.models.song import Song
-from app.database.schema import SessionLocal
 
 
 def normalize_text(text):
@@ -24,6 +22,27 @@ class ClickableLabel(QtWidgets.QLabel):
         if event.button() == QtCore.Qt.LeftButton:
             self.clicked.emit()
         super().mouseReleaseEvent(event)
+
+
+class CoverDownloadSignals(QtCore.QObject):
+    downloaded = QtCore.pyqtSignal(object, str)
+    failed = QtCore.pyqtSignal(object, str)
+
+
+class CoverDownloadTask(QtCore.QRunnable):
+    def __init__(self, cloud_services, song):
+        super().__init__()
+        self.cloud_services = cloud_services
+        self.song = song
+        self.signals = CoverDownloadSignals()
+
+    def run(self):
+        try:
+            path = self.cloud_services.prepare_cover(self.song)
+        except Exception as exc:
+            self.signals.failed.emit(self.song, str(exc))
+            return
+        self.signals.downloaded.emit(self.song, str(path))
 
 
 class Ui_Form(object):
@@ -2938,14 +2957,19 @@ class Ui_Form(object):
         self.maxduration.setText(_translate("Form", "-:--"))
 
 class DashboardWindow(QtWidgets.QWidget):
-    def __init__(self, user_id=None, dashboard=None, parent=None):
+    def __init__(self, user_id=None, cloud_services=None, dashboard=None, parent=None):
         super().__init__(parent)
         self.ui = Ui_Form()
         self.ui.setupUi(self)
 
         # --------------------- User / Dashboard ---------------------
         self.user_id = user_id
+        self.cloud_services = cloud_services
         self.dashboard = dashboard
+        self._cover_widgets = {}
+        self._queued_cover_ids = set()
+        self._cover_thread_pool = QtCore.QThreadPool(self)
+        self._cover_thread_pool.setMaxThreadCount(4)
 
         # --------------------- VLC Player ---------------------------
         instance = vlc.Instance('--no-plugins-cache', '--aout=directsound')
@@ -2970,7 +2994,7 @@ class DashboardWindow(QtWidgets.QWidget):
         self.ui.Volumeslider.valueChanged.connect(self.change_volume)
 
         # --------------------- Initial Load ------------------------
-        self.load_playlist_from_db()
+        self.load_playlist()
         self.master_playlist = self.playlist.copy()  # master copy for searching
         self.setup_home_playlist()
         self.setup_search_completer()
@@ -2980,14 +3004,10 @@ class DashboardWindow(QtWidgets.QWidget):
         self.load_home_display(self.home_playlist)
 
         if self.playlist:
-            # Initialize recommended_playlist with the main playlist
             self.recommended_playlist = self.playlist.copy()
-            
-            # Load the first song
-            self.load_song(self.playlist[self.current_index])
-            
-            # Update Up Next immediately
+            self.display_song_metadata(self.playlist[self.current_index])
             self.update_up_next()
+            QtCore.QTimer.singleShot(0, self.queue_visible_covers)
 
 
         # --------------------- Events -----------------------------
@@ -3093,24 +3113,9 @@ class DashboardWindow(QtWidgets.QWidget):
         placeholder = os.path.join(self.ui.media_path, "default_cover.png")
         for i in range(min(len(self.special_covers), len(self.home_playlist))):
             song = self.home_playlist[i]
-            cover_path = song.cover_path if song.cover_path and os.path.exists(song.cover_path) else placeholder
-            pixmap = QtGui.QPixmap(cover_path)
-
-            if not pixmap.isNull():
-                scaled_pixmap = pixmap.scaled(
-                    self.special_covers[i].size(),
-                    QtCore.Qt.IgnoreAspectRatio,
-                    QtCore.Qt.SmoothTransformation
-                )
-                self.special_covers[i].setIcon(QtGui.QIcon(scaled_pixmap))
-                self.special_covers[i].setIconSize(self.special_covers[i].size())
-                self.special_covers[i].setStyleSheet("padding:0px; border:none;")
-            else:
-                default_pixmap = QtGui.QPixmap(self.special_covers[i].size())
-                default_pixmap.fill(QtGui.QColor(186, 105, 51))
-                self.special_covers[i].setIcon(QtGui.QIcon(default_pixmap))
-                self.special_covers[i].setIconSize(self.special_covers[i].size())
-                self.special_covers[i].setStyleSheet("padding:0px; border:none;")
+            self.register_cover_widget(song, self.special_covers[i])
+            cover_path = self.cover_path_for(song, placeholder)
+            self.render_cover_widget(self.special_covers[i], cover_path)
 
 
             # ------------------- Title & Artist -------------------
@@ -3118,10 +3123,10 @@ class DashboardWindow(QtWidgets.QWidget):
             self.special_artists[i].setText(song.artist or "Unknown Artist")
 
             # ------------------- Max Duration -------------------
-            media = vlc.Media(song.file_path)
-            media.parse()
-            length = media.get_duration()
-            self.special_max_duration[i].setText(self.format_time(length // 1000) if length > 0 else "-:--")
+            duration = getattr(song, "duration", None)
+            self.special_max_duration[i].setText(
+                self.format_time(int(duration)) if duration else "-:--"
+            )
 
             # ------------------- Click Event -------------------
             func = lambda e, idx=i: self.play_home_song(idx) if e.button() == QtCore.Qt.LeftButton else None
@@ -3129,10 +3134,6 @@ class DashboardWindow(QtWidgets.QWidget):
             self.special_covers[i].mousePressEvent = func
         # ------------------- Load remaining home songs -------------------
         self.load_home_display(self.home_playlist[4:])
-
-        # ------------------- Load first song paused -------------------
-        if self.playlist:
-            self.load_song(self.playlist[self.current_index])
 
     def load_home_display(self, songs):
         placeholder = os.path.join(self.ui.media_path, "default_cover.png")
@@ -3150,9 +3151,7 @@ class DashboardWindow(QtWidgets.QWidget):
             song = songs[i]
 
             # Cover
-            cover_path = getattr(song, 'cover_path', None)
-            if not cover_path or not os.path.exists(cover_path):
-                cover_path = placeholder
+            cover_path = self.cover_path_for(song, placeholder)
             pixmap = QtGui.QPixmap(cover_path)
             pixmap = pixmap.scaled(widget.width(), widget.height(),
                                 QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
@@ -3166,17 +3165,100 @@ class DashboardWindow(QtWidgets.QWidget):
 
             # Max duration
             if i < len(self.home_max_duration):
-                media = vlc.Media(song.file_path)
-                media.parse()
-                length = media.get_duration()
-                self.home_max_duration[i].setText(self.format_time(length // 1000) if length > 0 else "-:--")
+                duration = getattr(song, "duration", None)
+                self.home_max_duration[i].setText(
+                    self.format_time(int(duration)) if duration else "-:--"
+                )
 
 
-    # ------------------- Database -------------------
-    def load_playlist_from_db(self):
-        db = SessionLocal()
-        self.playlist = db.query(Song).all()
-        db.close()
+    # ------------------- Cloud catalog -------------------
+    def load_playlist(self):
+        if not self.cloud_services:
+            self.playlist = []
+            return
+        self.playlist = list(self.cloud_services.load_catalog())
+
+    def cover_path_for(self, song, fallback):
+        cover_path = getattr(song, "cover_path", None)
+        if cover_path and os.path.exists(cover_path):
+            return str(cover_path)
+        return str(fallback)
+
+    @staticmethod
+    def cover_id(song):
+        return str(
+            getattr(song, "id", "")
+            or getattr(song, "cover_object_key", "")
+            or id(song)
+        )
+
+    def register_cover_widget(self, song, widget):
+        widgets = self._cover_widgets.setdefault(DashboardWindow.cover_id(song), [])
+        if widget not in widgets:
+            widgets.append(widget)
+
+    def render_cover_widget(self, widget, cover_path):
+        pixmap = QtGui.QPixmap(str(cover_path))
+        if pixmap.isNull():
+            return
+        scaled = pixmap.scaled(
+            widget.size(),
+            QtCore.Qt.KeepAspectRatio,
+            QtCore.Qt.SmoothTransformation,
+        )
+        if isinstance(widget, QtWidgets.QPushButton):
+            widget.setIcon(QtGui.QIcon(scaled))
+            widget.setIconSize(widget.size())
+            widget.setStyleSheet("padding:0px; border:none;")
+        else:
+            widget.setPixmap(scaled)
+            widget.setScaledContents(True)
+
+    def queue_visible_covers(self):
+        visible_songs = self.home_playlist[: len(self.special_covers) + len(self.home_images)]
+        for song in visible_songs:
+            self.queue_cover_download(song)
+
+    def queue_cover_download(self, song):
+        cover_path = getattr(song, "cover_path", "")
+        cover_key = getattr(song, "cover_object_key", "")
+        checksum = getattr(song, "cover_checksum_sha256", "")
+        cover_id = DashboardWindow.cover_id(song)
+        if (
+            not self.cloud_services
+            or (cover_path and os.path.exists(cover_path))
+            or not cover_key
+            or not checksum
+            or cover_id in self._queued_cover_ids
+        ):
+            return
+
+        self._queued_cover_ids.add(cover_id)
+        task = CoverDownloadTask(self.cloud_services, song)
+        task.signals.downloaded.connect(self.cover_downloaded)
+        task.signals.failed.connect(self.cover_download_failed)
+        self._cover_thread_pool.start(task)
+
+    def cover_downloaded(self, song, cover_path):
+        cover_id = DashboardWindow.cover_id(song)
+        self._queued_cover_ids.discard(cover_id)
+        song.cover_path = str(cover_path)
+        for widget in self._cover_widgets.get(cover_id, []):
+            self.render_cover_widget(widget, song.cover_path)
+
+    def cover_download_failed(self, song, error):
+        self._queued_cover_ids.discard(DashboardWindow.cover_id(song))
+        print(f"Could not prepare cover for {getattr(song, 'title', 'song')}: {error}")
+
+    def prepare_song_for_playback(self, song):
+        file_path = getattr(song, "file_path", "")
+        if (
+            self.cloud_services
+            and getattr(song, "track_object_key", None)
+            and not (file_path and os.path.exists(file_path))
+        ):
+            song.file_path = str(self.cloud_services.prepare_track(song))
+        return song
 
     # ------------------- Display -------------------
     def load_home_display(self, songs):
@@ -3195,28 +3277,44 @@ class DashboardWindow(QtWidgets.QWidget):
             self.home_titles[i].setText(song.title or "Unknown Title")
             self.home_artists[i].setText(song.artist or "Unknown Artist")
 
-            cover_path = song.cover_path if song.cover_path and os.path.exists(song.cover_path) else placeholder
-            pixmap = QtGui.QPixmap(cover_path)
-            pixmap = pixmap.scaled(widget.width(), widget.height(), QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
-
-            if isinstance(widget, QtWidgets.QPushButton):
-                widget.setIcon(QtGui.QIcon(pixmap))
-                widget.setIconSize(widget.size())
-            else:
-                widget.setPixmap(pixmap)
-                widget.setScaledContents(True)
+            self.register_cover_widget(song, widget)
+            cover_path = self.cover_path_for(song, placeholder)
+            self.render_cover_widget(widget, cover_path)
 
     # =====================================================================
     #                           PLAYER
     # =====================================================================
+    def display_song_metadata(self, song):
+        placeholder = os.path.join(self.ui.media_path, "default_cover.png")
+        self.render_cover_widget(self.ui.label_52, self.cover_path_for(song, placeholder))
+        self.ui.label_4.setText(song.title or "Unknown Title")
+        self.ui.label_5.setText(song.artist or "Unknown Artist")
+        self.ui.label_54.setText(song.artist or "Unknown Artist")
+        self.ui.label_53.setText(
+            getattr(song, "recommendation_reason", "") or song.title or "Unknown Title"
+        )
+        duration = getattr(song, "duration", None)
+        self.ui.maxduration.setText(
+            self.format_time(int(duration)) if duration else "-:--"
+        )
+        self.ui.tabWidget_2.setCurrentWidget(self.ui.tab_5)
+
     def load_song(self, song, play_after_load=False):
         """Loads a song into the player and updates UI labels."""
+        try:
+            song = self.prepare_song_for_playback(song)
+        except Exception as exc:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Playback Unavailable",
+                f"MyRhythm could not prepare {getattr(song, 'title', 'this track')}.\n\n"
+                f"Details: {exc}",
+            )
+            return False
         self.player.set_media(vlc.Media(song.file_path))
 
         placeholder = os.path.join(self.ui.media_path, "default_cover.png")
-        cover_path = getattr(song, "cover_path", None)
-        if not cover_path or not os.path.exists(cover_path):
-            cover_path = placeholder
+        cover_path = self.cover_path_for(song, placeholder)
         pixmap = QtGui.QPixmap(cover_path)
 
         # Main cover display
@@ -3245,8 +3343,12 @@ class DashboardWindow(QtWidgets.QWidget):
         self.ui.label_5.setText(song.artist or "Unknown Artist")
 
         # Update "Up Next" current song labels
-        self.ui.label_53.setText(song.title or "Unknown Title")
         self.ui.label_54.setText(song.artist or "Unknown Artist")
+        reason = getattr(song, "recommendation_reason", "")
+        if reason:
+            self.ui.label_53.setText(reason)
+        else:
+            self.ui.label_53.setText(song.title or "Unknown Title")
 
         # Reset slider
         self.ui.Musicslider.blockSignals(True)
@@ -3267,13 +3369,16 @@ class DashboardWindow(QtWidgets.QWidget):
         self.update_up_next()
 
         # Update max duration
-        def set_max_duration():
+        def set_max_duration(attempt=0):
             length = self.player.get_length()
             if length > 0:
                 self.ui.Musicslider.setMaximum(length)
                 self.ui.maxduration.setText(self.format_time(length // 1000))
-            else:
-                QtCore.QTimer.singleShot(100, set_max_duration)
+            elif attempt < 20:
+                QtCore.QTimer.singleShot(
+                    100,
+                    lambda: set_max_duration(attempt + 1),
+                )
         set_max_duration()
         self.ui.tabWidget_2.setCurrentWidget(self.ui.tab_5)
 
@@ -3281,6 +3386,10 @@ class DashboardWindow(QtWidgets.QWidget):
         self.load_song(self.playlist[self.current_index], play_after_load=True)
 
     def toggle_play_pause(self):
+        if self.player.get_media() is None:
+            if self.playlist:
+                self.play_current_song()
+            return
         if self.is_paused:
             self.player.play()
             self.is_paused = False
@@ -3397,9 +3506,7 @@ class DashboardWindow(QtWidgets.QWidget):
             song = next_songs[i]
             title = getattr(song, "title", "Unknown Title")
             artist = getattr(song, "artist", "Unknown Artist")
-            cover_path = getattr(song, "cover_path", None)
-            if not cover_path or not os.path.exists(cover_path):
-                cover_path = placeholder
+            cover_path = self.cover_path_for(song, placeholder)
 
             up_next_titles[i].setText(title)
             up_next_artists[i].setText(artist)
@@ -3483,8 +3590,14 @@ class DashboardWindow(QtWidgets.QWidget):
                 id=s.get("song_id"),
                 title=s.get("title") or "Unknown Title",
                 artist=s.get("artist") or "Unknown Artist",
+                genre=s.get("genre") or "Unknown Genre",
                 file_path=s.get("file_path") or "",
-                cover_path=s.get("cover_path") or os.path.join(self.ui.media_path, "default_cover.png")
+                cover_path=s.get("cover_path") or os.path.join(self.ui.media_path, "default_cover.png"),
+                track_object_key=s.get("track_object_key"),
+                track_checksum_sha256=s.get("track_checksum_sha256"),
+                cover_object_key=s.get("cover_object_key"),
+                cover_checksum_sha256=s.get("cover_checksum_sha256"),
+                recommendation_reason=s.get("recommendation_reason", ""),
             )
             converted.append(temp_song)
 
@@ -3510,13 +3623,23 @@ class DashboardWindow(QtWidgets.QWidget):
         # Accept both dict and already-converted objects
         if isinstance(song_dict, dict):
             file_path = song_dict.get("file_path") or ""
-            cover_path = song_dict.get("cover") or os.path.join(self.ui.media_path, "default_cover.png")
+            cover_path = (
+                song_dict.get("cover_path")
+                or song_dict.get("cover")
+                or os.path.join(self.ui.media_path, "default_cover.png")
+            )
             temp_song = SimpleNamespace(
                 id=song_dict.get("song_id") or song_dict.get("id"),
                 title=song_dict.get("title", "Unknown Title"),
                 artist=song_dict.get("artist", "Unknown Artist"),
+                genre=song_dict.get("genre", "Unknown Genre"),
                 file_path=file_path,
-                cover_path=cover_path
+                cover_path=cover_path,
+                track_object_key=song_dict.get("track_object_key"),
+                track_checksum_sha256=song_dict.get("track_checksum_sha256"),
+                cover_object_key=song_dict.get("cover_object_key"),
+                cover_checksum_sha256=song_dict.get("cover_checksum_sha256"),
+                recommendation_reason=song_dict.get("recommendation_reason", ""),
             )
         else:
             # assume object with appropriate attributes
@@ -3537,7 +3660,36 @@ class DashboardWindow(QtWidgets.QWidget):
     #                           EXTRA WINDOWS
     # =====================================================================
     def open_recognition(self):
-        self.recognition_window = Ui_Recognition(user_id=self.user_id, dashboard=self)
+        if self.cloud_services:
+            try:
+                result = self.cloud_services.provision_models()
+                if result.failures:
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "Recognition Models Limited",
+                        "Some recognition models could not be prepared. "
+                        "Available modes can still be used.\n\n"
+                        + "\n".join(
+                            f"{name}: {message}"
+                            for name, message in result.failures.items()
+                        ),
+                    )
+            except Exception as exc:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Recognition Models Unavailable",
+                    f"Recognition models could not be prepared.\n\nDetails: {exc}",
+                )
+        engine_factory = (
+            self.cloud_services.recommendation_engine
+            if self.cloud_services
+            else None
+        )
+        self.recognition_window = Ui_Recognition(
+            user_id=self.user_id,
+            dashboard=self,
+            recommendation_engine_factory=engine_factory,
+        )
         self.recognition_window.show()
 
     # =====================================================================
@@ -3605,7 +3757,7 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { border: none; bac
             self.ui.label_3.setText(song.artist)
 
             placeholder = os.path.join(self.ui.media_path, "default_cover.png")
-            cover_path = song.cover_path if song.cover_path and os.path.exists(song.cover_path) else placeholder
+            cover_path = self.cover_path_for(song, placeholder)
             pixmap = QtGui.QPixmap(cover_path).scaled(
                 self.ui.pushButton_2.width(),
                 self.ui.pushButton_2.height(),

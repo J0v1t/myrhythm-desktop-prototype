@@ -1,83 +1,120 @@
 # MyRhythm Desktop Prototype
 
-<p>
-  <a href="https://skillicons.dev">
-    <img alt="MyRhythm stack" src="https://skillicons.dev/icons?i=python,qt,sqlite,opencv,tensorflow,scikitlearn,supabase,cloudflare&theme=light&perline=8">
-  </a>
-</p>
+MyRhythm is a PyQt desktop prototype for emotion-aware music recommendation.
+The reviewer application uses Supabase Auth and metadata, then securely streams
+private tracks, covers, and runtime models from Cloudflare R2 through an
+authenticated Cloudflare Worker.
 
-MyRhythm is an academic desktop prototype for emotion-aware music recommendation. It combines a PyQt interface, local preferences, music metadata, webcam-based facial emotion recognition modules, and BLE heart-rate modules to explore how mood signals could influence song recommendations.
+## Reviewer Setup
 
-This public copy is sanitized for portfolio review. It keeps the application structure and documentation, but excludes private datasets, model artifacts, generated outputs, local databases, and music files.
+Prerequisites:
 
-## What It Demonstrates
+- Python 3.10
+- [VLC media player 3.x, 64-bit](https://www.videolan.org/vlc/) installed for
+  native libVLC playback
+- Internet access
+- A webcam or BLE heart-rate monitor only when testing those optional inputs
 
-- PyQt screens for agreement, login, preferences, recognition, and dashboard flows
-- SQLAlchemy models for users, preferences, songs, and audio features
-- Recommendation logic that ranks songs using detected emotion labels and stored preferences
-- Facial emotion recognition pipeline code for webcam-based FER experiments
-- BLE heart-rate reader and heart-rate emotion-classification scripts
-- Asset, model, and storage documentation for a safer public rebuild
-
-## Run Locally
+Run:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-Copy-Item .env.example .env
+python -m pip install -r requirements.txt
 python run.py
 ```
 
-The app creates `instance/myrhythm.db` locally. That database is ignored by Git.
+No `.env` file, local database, seed script, media folder, model download, or
+cloud credential is required. Create an account or sign in, choose preferences,
+and the existing cloud catalog appears in the dashboard.
+
+`requirements.txt` contains only the reviewer runtime. Maintainers working on
+offline ingestion, legacy SQLite tooling, model training, or generated reports
+can install `requirements-offline.txt` instead.
+
+If the live Supabase project has email confirmation enabled, confirm the
+account from the Supabase email before signing in. This is a provider setting,
+not a reviewer configuration step.
+
+The app checks native VLC before login and explains the prerequisite if it is
+missing. `python-vlc` is only the Python binding; installing it does not install
+native libVLC.
+
+## Cloud Reviewer Flow
+
+1. Supabase Auth signs the reviewer in.
+2. Supabase returns the active song catalog and the reviewer's preferences.
+3. Real artists from that catalog populate onboarding preferences.
+4. Visible covers load in the background, selected tracks load on demand, and
+   required FER/heart-rate models load when the reviewer opens recognition.
+5. Every downloaded asset is SHA-256 verified and cached outside the repository.
+6. VLC plays the verified local cache file.
+
+The signed-in reviewer flow does not initialize or read SQLite. SQLite modules
+and `scripts/seed_demo_assets.py` remain only as offline development and
+ingestion tooling.
+
+## Security Boundary
+
+Desktop applications are public clients. Reviewers can inspect the Supabase
+project URL, publishable key, Worker URL, and request shapes, so none of those
+values are treated as secrets.
+
+Sensitive credentials are not shipped:
+
+- no Supabase service-role key
+- no R2 access key or secret
+- no database password
+- no Cloudflare API token
+
+The Worker owns private R2 bindings, verifies each Supabase session, checks
+asset metadata authorization, rejects unknown keys and oversized objects, and
+enforces IP and per-user rate limits. Downloads are byte-size and checksum
+verified before the runtime can use them. See
+[Production Security](docs/production-security.md).
+
+## Cloud Assets
+
+- `myrhythm-music-assets`: 236 tracks and 233 matched covers
+- `myrhythm-ml-models`: FER and heart-rate runtime models plus legacy/offline
+  ingestion artifacts
+- Worker: `https://myrhythm-assets-api.zctrl7801.workers.dev`
+
+Cloud assets are cached under the operating system's user cache directory, not
+inside the clone. Deleting the cache is safe; the app will fetch and verify
+assets again.
+
+## Optional Device Features
+
+Webcam FER and BLE heart-rate recognition remain optional. Required runtime
+models are provisioned automatically when recognition opens. Raw webcam frames
+and raw heart-rate streams stay local by default; the recommender consumes
+summary mood labels.
 
 ## Project Map
 
 ```text
-myrhythm-desktop-prototype/
-  app/
-    auth/       # Prototype auth logic
-    database/   # SQLAlchemy schema and models
-    fer/        # Facial emotion recognition scripts
-    gui/        # PyQt windows and Qt Designer files
-    hr/         # BLE heart-rate and HR model scripts
-    logic/      # User session and preferences
-    music/      # Metadata, features, scanner, and recommendation logic
-  docs/         # Architecture, asset policy, model notes, and storage plan
-  media/        # Lightweight UI icons and logos
-  sample_data/  # Example song manifest shape
-  tests/
+app/
+  auth/       Supabase Auth client
+  cloud/      Supabase metadata, Worker client, and verified asset cache
+  database/   Offline/local development schema and models
+  fer/        Facial-emotion recognition
+  gui/        PyQt application windows
+  hr/         BLE heart-rate recognition
+  music/      Catalog and recommendation logic
+cloudflare/
+  worker/     Authenticated, authorized, rate-limited R2 gateway
+docs/         Architecture, security, and asset documentation
+tests/        Unit and integration-contract tests
 ```
-
-## Not Included
-
-- MP3 files, cover art, and bulk local music libraries
-- Trained FER, heart-rate, or music-classifier model files
-- Training datasets, generated reports, runtime logs, or local databases
-- Raw webcam captures, face images, raw heart-rate streams, or emotion logs
-- Cloud credentials or third-party auth secrets
-
-Use [docs/local-assets.md](docs/local-assets.md), [docs/model-artifacts.md](docs/model-artifacts.md), and [sample_data/song_manifest.example.csv](sample_data/song_manifest.example.csv) when rebuilding local assets.
-
-## Team Notes
-
-Emotion and heart-rate signals are sensitive, health-adjacent data. Keep this prototype local-first unless a backend, consent flow, and storage policy are ready. Do not frame the project as medical software, therapy, stress reduction, or a production wearable product.
-
-The staged cloud direction is documented in [docs/prd-cloud-migration.md](docs/prd-cloud-migration.md): keep PyQt as the client, add a backend before cloud storage, and keep object-storage/database secrets server-side.
 
 ## Verification
 
-- Release scan found no committed heavy media, model, dataset, database, or secret files
-- `python -m compileall -q app tests` passed
-- `python -m pytest tests` passed with 3 tests passing and 2 optional dependency suites skipped in the bare local environment
+```powershell
+python -m compileall -q app tests run.py
+python -m pytest -q
+```
 
-## Future Improvements
-
-- Add screenshots or a short demo clip from the sanitized copy
-- Add clearer dependency groups for base app, FER, HR, and audio features
-- Add more unit tests around recommendation and database behavior
-- Build a backend only after the local prototype and privacy boundaries are stable
-
-## Portfolio Framing
-
-Built an academic PyQt desktop prototype for emotion-aware music recommendation using webcam facial-emotion modules, BLE heart-rate input modules, SQLite-backed preferences, and local music metadata.
+The repository intentionally excludes bulk media, model binaries, training
+datasets, generated reports, runtime logs, local databases, and all sensitive
+credentials.

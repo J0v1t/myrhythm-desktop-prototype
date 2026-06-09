@@ -1,5 +1,9 @@
 # PRD: Cloud Migration for MyRhythm
 
+> Historical planning document. The signed-in reviewer runtime described here
+> has since been implemented with Supabase metadata and an authenticated
+> Cloudflare R2 Worker. See `docs/cloud-reviewer-experience.md`.
+
 ## Problem Statement
 
 MyRhythm is currently a sanitized academic desktop prototype. It can show the application structure, local preferences, recommendation logic, and emotion/heart-rate integration modules, but it is not ready for real cloud-backed users or shared music/model assets.

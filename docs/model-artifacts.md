@@ -6,14 +6,12 @@ Trained models are intentionally excluded from this public repository.
 
 - FER model: `app/fer/trained_models/myrhythm_fer.h5`
 - Heart-rate model: `app/hr/trained_hr_models/lstm_model.keras`
-- Heart-rate label encoder: `app/hr/trained_hr_models/label_encoder.pkl`
 - Music classifier/scaler artifacts under `app/music/trained_models/`
 
-## Future Handling
+## Cloud Handling
 
-For local development, keep model files outside Git and point the application to them through configuration.
-
-For a cloud-backed rebuild, store model artifacts in private object storage and expose them through backend-issued signed URLs. Each model should have:
+Runtime model artifacts are stored in private R2 and exposed through the
+authenticated Cloudflare Worker. Supabase stores each active model manifest:
 
 - artifact type
 - version
@@ -24,3 +22,16 @@ For a cloud-backed rebuild, store model artifacts in private object storage and 
 - storage object key
 
 Do not claim model performance until the training data, evaluation split, and generated reports are verified.
+
+## Runtime Resolution
+
+After sign-in, the app automatically downloads and verifies the active FER and
+heart-rate models into the user cache. The heart-rate output label order is
+fixed in source, so the public runtime does not deserialize a label-encoder
+artifact. Maintainers can still override the model paths for offline testing:
+
+- `MYRHYTHM_FER_MODEL_PATH`
+- `MYRHYTHM_HR_MODEL_PATH`
+
+Missing artifacts disable only the affected recognition mode; music browsing
+and playback remain available.
